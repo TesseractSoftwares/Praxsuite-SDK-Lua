@@ -49,12 +49,12 @@ function PraxQL.BuildWhere(where: { [string]: any }?): { any }?
                 if OPERATORS[op] then
                     if op == "isNull" or op == "isNotNull" then
                         table.insert(conditions, {
-                            column = column,
+                            field = column,
                             op = OPERATORS[op],
                         })
                     else
                         table.insert(conditions, {
-                            column = column,
+                            field = column,
                             op = OPERATORS[op],
                             value = opValue,
                         })
@@ -66,7 +66,7 @@ function PraxQL.BuildWhere(where: { [string]: any }?): { any }?
         else
             -- Simple equality: { player_id = 123 }
             table.insert(conditions, {
-                column = column,
+                field = column,
                 op = "eq",
                 value = value,
             })
@@ -90,27 +90,27 @@ function PraxQL.BuildOrderBy(orderBy: any?): { any }?
 
     if typeof(orderBy) == "string" then
         -- Single column, default desc
-        table.insert(result, { column = orderBy, direction = "desc" })
+        table.insert(result, { field = orderBy, dir = "desc" })
     elseif typeof(orderBy) == "table" then
         -- Could be single { "col", "dir" } or array of order specs
         if typeof(orderBy[1]) == "string" and typeof(orderBy[2]) == "string" and #orderBy == 2 then
             -- Single: { "score", "desc" }
-            table.insert(result, { column = orderBy[1], direction = orderBy[2] })
+            table.insert(result, { field = orderBy[1], dir = orderBy[2] })
         elseif typeof(orderBy[1]) == "table" then
             -- Array of specs: { {"score","desc"}, {"name","asc"} }
             for _, spec in ipairs(orderBy) do
                 if typeof(spec) == "string" then
-                    table.insert(result, { column = spec, direction = "desc" })
+                    table.insert(result, { field = spec, dir = "desc" })
                 elseif typeof(spec) == "table" then
                     table.insert(result, {
-                        column = spec[1] or spec.column,
-                        direction = spec[2] or spec.dir or "desc",
+                        field = spec[1] or spec.column or spec.field,
+                        dir = spec[2] or spec.dir or "desc",
                     })
                 end
             end
-        elseif orderBy.column then
+        elseif orderBy.column or orderBy.field then
             -- Single object: { column = "score", dir = "desc" }
-            table.insert(result, { column = orderBy.column, direction = orderBy.dir or "desc" })
+            table.insert(result, { field = orderBy.column or orderBy.field, dir = orderBy.dir or "desc" })
         end
     end
 
