@@ -8,7 +8,12 @@
     
         -- ServerScriptService/Boot.server.lua (runs once)
         local Praxsuite = require(game.ServerScriptService.PraxsuiteSDK)
+        
+        -- Production (published game): use Roblox Secrets Store
         Praxsuite.Init({ workspaceId = "...", apiKeySecret = "PraxKey" })
+        
+        -- Studio testing: pass raw API key directly
+        Praxsuite.Init({ workspaceId = "...", apiKey = "sk_live_..." })
     
         -- Any other script (already initialized, just use it):
         local Praxsuite = require(game.ServerScriptService.PraxsuiteSDK)
@@ -83,7 +88,8 @@ Config._autoInitFn = tryAutoInit
 --- If you use PraxsuiteConfig module, you don't need to call this at all.
 function Praxsuite.Init(options: {
 	workspaceId: string,
-	apiKeySecret: string,
+	apiKeySecret: string?,
+	apiKey: string?,
 	baseUrl: string?,
 	autoFetchSchema: boolean?,
 	retryEnabled: boolean?,
@@ -91,10 +97,11 @@ function Praxsuite.Init(options: {
 	timeout: number?,
 })
 	assert(options.workspaceId, "[PraxsuiteSDK] workspaceId is required")
-	assert(options.apiKeySecret, "[PraxsuiteSDK] apiKeySecret is required")
+	assert(options.apiKeySecret or options.apiKey, "[PraxsuiteSDK] Either apiKeySecret or apiKey is required")
 
 	Config._workspaceId = options.workspaceId
 	Config._apiKeySecret = options.apiKeySecret
+	Config._apiKey = options.apiKey
 	Config._baseUrl = options.baseUrl or "https://gateway.praxsuite.com"
 	Config._retryEnabled = if options.retryEnabled ~= nil then options.retryEnabled else true
 	Config._maxRetries = options.maxRetries or 3

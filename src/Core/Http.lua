@@ -18,6 +18,14 @@ local function getApiKey(): string
 	if _cachedApiKey then
 		return _cachedApiKey
 	end
+
+	-- If a raw API key was provided (Studio testing), use it directly
+	if Config._apiKey then
+		_cachedApiKey = Config._apiKey
+		return _cachedApiKey
+	end
+
+	-- Otherwise, resolve from Roblox Secrets Store (published game servers)
 	_cachedApiKey = HttpService:GetSecret(Config._apiKeySecret)
 	return _cachedApiKey
 end

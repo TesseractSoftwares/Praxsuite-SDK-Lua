@@ -9,6 +9,7 @@ local Config = {}
 -- Internal state (set during Init)
 Config._workspaceId = nil :: string?
 Config._apiKeySecret = nil :: string?
+Config._apiKey = nil :: string?  -- Raw API key (for Studio testing; bypasses Secrets Store)
 Config._baseUrl = "https://gateway.praxsuite.com"
 Config._retryEnabled = true
 Config._maxRetries = 3
