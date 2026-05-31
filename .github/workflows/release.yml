@@ -25,59 +25,18 @@ jobs:
         run: aftman install
 
       - name: Build PraxsuiteSDK
-        run: |
-          rojo build default.project.json -o PraxsuiteSDK.rbxm
-          rojo build default.project.json -o PraxsuiteSDK.rbxmx
+        run: rojo build default.project.json -o PraxsuiteSDK.rbxm
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: PraxsuiteSDK
-          path: |
-            PraxsuiteSDK.rbxm
-            PraxsuiteSDK.rbxmx
+          path: PraxsuiteSDK.rbxm
 
-      - name: Publish to Roblox Creator Store
-        if: startsWith(github.ref, 'refs/tags/v')
-        # Setup: https://create.roblox.com/dashboard/credentials → API Keys tab
-        # Create key with "Assets" API → "Write" operation enabled
-        # Store all as GitHub repo Secrets
-        env:
-          ROBLOX_OPEN_CLOUD_API_KEY: ${{ secrets.ROBLOX_OPEN_CLOUD_API_KEY }}
-          ROBLOX_ASSET_ID: ${{ secrets.ROBLOX_CREATOR_STORE_ASSET_ID }}
-          ROBLOX_USER_ID: ${{ secrets.ROBLOX_CREATOR_USER_ID }}
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "Publishing PraxsuiteSDK v${VERSION} to Roblox Creator Store..."
-
-          if [ -z "$ROBLOX_ASSET_ID" ]; then
-            echo "Creating new asset on Creator Store..."
-            RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-              "https://apis.roblox.com/assets/v1/assets" \
-              -H "x-api-key: ${ROBLOX_OPEN_CLOUD_API_KEY}" \
-              -F "request={\"assetType\":\"Model\",\"displayName\":\"PraxsuiteSDK v${VERSION}\",\"description\":\"Official Praxsuite SDK for Roblox — Connect your game to Praxsuite APIs with zero config. Query data, manage players, and more. https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua\",\"creationContext\":{\"creator\":{\"userId\":\"${ROBLOX_USER_ID}\"}}};type=application/json" \
-              -F "fileContent=@PraxsuiteSDK.rbxmx;type=application/xml")
-            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-            BODY=$(echo "$RESPONSE" | sed '$d')
-            echo "Response ($HTTP_CODE): $BODY"
-          else
-            echo "Updating existing asset ${ROBLOX_ASSET_ID}..."
-            RESPONSE=$(curl -s -w "\n%{http_code}" -X PATCH \
-              "https://apis.roblox.com/assets/v1/assets/${ROBLOX_ASSET_ID}" \
-              -H "x-api-key: ${ROBLOX_OPEN_CLOUD_API_KEY}" \
-              -F "request={\"displayName\":\"PraxsuiteSDK v${VERSION}\",\"description\":\"Official Praxsuite SDK for Roblox — Connect your game to Praxsuite APIs with zero config. Query data, manage players, and more. v${VERSION} | https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua\"};type=application/json" \
-              -F "fileContent=@PraxsuiteSDK.rbxmx;type=application/xml")
-            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-            BODY=$(echo "$RESPONSE" | sed '$d')
-            echo "Response ($HTTP_CODE): $BODY"
-          fi
-
-          if [[ "$HTTP_CODE" -ge 200 && "$HTTP_CODE" -lt 300 ]]; then
-            echo "✅ Successfully published to Roblox Creator Store"
-          else
-            echo "❌ Failed to publish (HTTP $HTTP_CODE)"
-            exit 1
-          fi
+      # NOTE: Roblox Open Cloud Assets API does not support Model uploads yet.
+      # To publish to Creator Store: open PraxsuiteSDK.rbxm in Roblox Studio,
+      # right-click the model → "Publish to Roblox" → distribute on Creator Store.
+      # Re-enable this step when Roblox adds Model support to the Assets API.
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -88,7 +47,7 @@ jobs:
           body: |
             ## Installation
 
-            ### Roblox Creator Store (easiest)
+            ### Roblox Creator Store
             Search **"PraxsuiteSDK"** in the Toolbox inside Roblox Studio and click Install!
 
             ### Drag-and-Drop
