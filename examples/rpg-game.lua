@@ -5,19 +5,16 @@
     Features: player profiles, inventory, leaderboard, purchase validation.
     
     Setup:
-    1. Create tables in Praxsuite: player_profiles, inventory, game_events
-    2. Create a sync endpoint: "validate-purchase" 
-    3. Store API key in Roblox Secrets Store as "PraxsuiteKey"
+    1. Drop PraxsuiteConfig module in ServerScriptService (see examples/PraxsuiteConfig.lua)
+    2. Create tables in Praxsuite: player_profiles, inventory, game_events
+    3. Create a sync endpoint: "validate-purchase"
+    4. That's it — no Init() call needed!
 ]]
 
 local Players = game:GetService("Players")
 local Praxsuite = require(game.ServerScriptService.PraxsuiteSDK)
 
--- ─── Initialize SDK ──────────────────────────────────────────────────────────
-Praxsuite.Init({
-    workspaceId = "YOUR_WORKSPACE_UUID",
-    apiKeySecret = "PraxsuiteKey",
-})
+-- No Init() needed! SDK auto-discovers PraxsuiteConfig module.
 
 -- ─── Player Join ─────────────────────────────────────────────────────────────
 Players.PlayerAdded:Connect(function(player)

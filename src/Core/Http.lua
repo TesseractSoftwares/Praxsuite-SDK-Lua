@@ -11,20 +11,32 @@ local Http = {}
 -- Detect runtime and get appropriate services
 local HttpService = game:GetService("HttpService")
 
+-- ─── Optimization: cache the resolved API key (secrets don't change at runtime) ──
+local _cachedApiKey: string? = nil
+
+local function getApiKey(): string
+	if _cachedApiKey then
+		return _cachedApiKey
+	end
+	_cachedApiKey = HttpService:GetSecret(Config._apiKeySecret)
+	return _cachedApiKey
+end
+
 --- Internal: Build default headers for every request.
+--- Reuses cached API key — zero repeated Secret Store lookups.
 local function buildHeaders(): { [string]: string }
-    local headers = {
-        ["Content-Type"] = "application/json",
-        ["x-api-key"] = HttpService:GetSecret(Config._apiKeySecret),
-    }
+	local headers = {
+		["Content-Type"] = "application/json",
+		["x-api-key"] = getApiKey(),
+	}
 
-    -- Inject player identity headers if context is set
-    if Config._currentPlayerPlatform and Config._currentPlayerId then
-        headers["x-player-platform"] = Config._currentPlayerPlatform
-        headers["x-player-id"] = Config._currentPlayerId
-    end
+	-- Inject player identity headers if context is set
+	if Config._currentPlayerPlatform then
+		headers["x-player-platform"] = Config._currentPlayerPlatform
+		headers["x-player-id"] = Config._currentPlayerId
+	end
 
-    return headers
+	return headers
 end
 
 --- Internal: Parse JSON response body.

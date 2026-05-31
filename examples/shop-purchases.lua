@@ -3,16 +3,15 @@
     
     Shows how to validate Roblox developer product purchases
     against a Praxsuite automation endpoint for fraud prevention.
+    
+    Prerequisite: PraxsuiteConfig module in ServerScriptService.
 ]]
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local Praxsuite = require(game.ServerScriptService.PraxsuiteSDK)
 
-Praxsuite.Init({
-    workspaceId = "YOUR_WORKSPACE_UUID",
-    apiKeySecret = "PraxsuiteKey",
-})
+-- No Init() needed — auto-discovers PraxsuiteConfig.
 
 -- Product catalog (maps Roblox product IDs to your items)
 local PRODUCTS = {

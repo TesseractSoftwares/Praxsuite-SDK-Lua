@@ -3,15 +3,14 @@
     
     Shows how to build a competitive leaderboard with Praxsuite.
     Scores are stored in the database and queried in real-time.
+    
+    Prerequisite: PraxsuiteConfig module in ServerScriptService.
 ]]
 
 local Players = game:GetService("Players")
 local Praxsuite = require(game.ServerScriptService.PraxsuiteSDK)
 
-Praxsuite.Init({
-    workspaceId = "YOUR_WORKSPACE_UUID",
-    apiKeySecret = "PraxsuiteKey",
-})
+-- No Init() needed — auto-discovers PraxsuiteConfig.
 
 local Leaderboard = {}
 
