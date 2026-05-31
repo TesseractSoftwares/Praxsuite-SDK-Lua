@@ -1,0 +1,9 @@
+{
+  "name": "PraxsuiteSDK",
+  "tree": {
+    "$className": "Folder",
+    "PraxsuiteSDK": {
+      "$path": "src"
+    }
+  }
+}

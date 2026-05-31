@@ -1,0 +1,26 @@
+# Roblox
+*.rbxlx
+*.rbxl
+*.rbxm
+*.rbxmx
+
+# Wally
+Packages/
+DevPackages/
+wally.lock
+
+# Rojo
+sourcemap.json
+*.rbxl
+*.rbxlx
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
