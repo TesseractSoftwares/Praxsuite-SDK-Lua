@@ -24,14 +24,18 @@ jobs:
       - name: Install Rojo
         run: aftman install
 
-      - name: Build PraxsuiteSDK.rbxm
-        run: rojo build default.project.json -o PraxsuiteSDK.rbxm
+      - name: Build PraxsuiteSDK
+        run: |
+          rojo build default.project.json -o PraxsuiteSDK.rbxm
+          rojo build default.project.json -o PraxsuiteSDK.rbxmx
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: PraxsuiteSDK
-          path: PraxsuiteSDK.rbxm
+          path: |
+            PraxsuiteSDK.rbxm
+            PraxsuiteSDK.rbxmx
 
       - name: Publish to Roblox Creator Store
         if: startsWith(github.ref, 'refs/tags/v')
@@ -52,7 +56,7 @@ jobs:
               "https://apis.roblox.com/assets/v1/assets" \
               -H "x-api-key: ${ROBLOX_OPEN_CLOUD_API_KEY}" \
               -F "request={\"assetType\":\"Model\",\"displayName\":\"PraxsuiteSDK v${VERSION}\",\"description\":\"Official Praxsuite SDK for Roblox — Connect your game to Praxsuite APIs with zero config. Query data, manage players, and more. https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua\",\"creationContext\":{\"creator\":{\"userId\":\"${ROBLOX_USER_ID}\"}}};type=application/json" \
-              -F "fileContent=@PraxsuiteSDK.rbxm;type=application/octet-stream")
+              -F "fileContent=@PraxsuiteSDK.rbxmx;type=application/xml")
             HTTP_CODE=$(echo "$RESPONSE" | tail -1)
             BODY=$(echo "$RESPONSE" | sed '$d')
             echo "Response ($HTTP_CODE): $BODY"
@@ -62,7 +66,7 @@ jobs:
               "https://apis.roblox.com/assets/v1/assets/${ROBLOX_ASSET_ID}" \
               -H "x-api-key: ${ROBLOX_OPEN_CLOUD_API_KEY}" \
               -F "request={\"displayName\":\"PraxsuiteSDK v${VERSION}\",\"description\":\"Official Praxsuite SDK for Roblox — Connect your game to Praxsuite APIs with zero config. Query data, manage players, and more. v${VERSION} | https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua\"};type=application/json" \
-              -F "fileContent=@PraxsuiteSDK.rbxm;type=application/octet-stream")
+              -F "fileContent=@PraxsuiteSDK.rbxmx;type=application/xml")
             HTTP_CODE=$(echo "$RESPONSE" | tail -1)
             BODY=$(echo "$RESPONSE" | sed '$d')
             echo "Response ($HTTP_CODE): $BODY"
