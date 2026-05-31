@@ -140,16 +140,20 @@ function Http.Request(method: string, url: string, body: any?, extraHeaders: { [
                 }
             else
                 -- Non-retryable or exhausted retries
-                error({
-                    code = if typeof(parsed) == "table" and parsed.code
-                        then parsed.code
-                        else "HTTP_" .. tostring(response.StatusCode),
-                    message = if typeof(parsed) == "table" and parsed.message
-                        then parsed.message
-                        else response.StatusMessage or "Request failed",
-                    status = response.StatusCode,
-                    details = parsed,
-                })
+                local code = if typeof(parsed) == "table" and parsed.code
+                    then parsed.code
+                    else "HTTP_" .. tostring(response.StatusCode)
+                local msg = if typeof(parsed) == "table" and parsed.message
+                    then parsed.message
+                    else response.StatusMessage or "Request failed"
+                local detail = ""
+                if typeof(parsed) == "table" then
+                    local ok2, json = pcall(HttpService.JSONEncode, HttpService, parsed)
+                    if ok2 then detail = " | " .. json end
+                elseif typeof(parsed) == "string" then
+                    detail = " | " .. parsed
+                end
+                error("[PraxsuiteSDK] " .. code .. ": " .. msg .. detail)
             end
         else
             -- pcall failed (network error, timeout, etc.)
@@ -162,17 +166,13 @@ function Http.Request(method: string, url: string, body: any?, extraHeaders: { [
                     status = 0,
                 }
             else
-                error({
-                    code = "NETWORK_ERROR",
-                    message = tostring(response),
-                    status = 0,
-                })
+                error("[PraxsuiteSDK] NETWORK_ERROR: " .. tostring(response))
             end
         end
     end
 
     -- Should not reach here, but just in case
-    error(lastError or { code = "UNKNOWN", message = "Request failed", status = 0 })
+    error("[PraxsuiteSDK] UNKNOWN: Request failed after all retries")
 end
 
 --- Shorthand POST request.
