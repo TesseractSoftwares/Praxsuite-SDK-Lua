@@ -37,11 +37,11 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         # Setup: https://create.roblox.com/dashboard/credentials → API Keys tab
         # Create key with "Assets" API → "Write" operation enabled
-        # Store as ROBLOX_OPEN_CLOUD_API_KEY in GitHub repo secrets
+        # Store all as GitHub repo Secrets
         env:
           ROBLOX_OPEN_CLOUD_API_KEY: ${{ secrets.ROBLOX_OPEN_CLOUD_API_KEY }}
-          ROBLOX_ASSET_ID: ${{ vars.ROBLOX_CREATOR_STORE_ASSET_ID }}
-          ROBLOX_USER_ID: ${{ vars.ROBLOX_CREATOR_USER_ID }}
+          ROBLOX_ASSET_ID: ${{ secrets.ROBLOX_CREATOR_STORE_ASSET_ID }}
+          ROBLOX_USER_ID: ${{ secrets.ROBLOX_CREATOR_USER_ID }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           echo "Publishing PraxsuiteSDK v${VERSION} to Roblox Creator Store..."
