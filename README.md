@@ -1,8 +1,55 @@
+<div align="center">
+
+<img src="https://raw.githubusercontent.com/TesseractSoftwares/Praxsuite-SDK-Lua/master/assets/praxsuite-sdk-banner.svg" alt="Praxsuite SDK" width="600" />
+
 # Praxsuite SDK for Lua
 
-Official SDK for connecting Lua-based game engines to [Praxsuite](https://praxsuite.com) as a backend.
+**The backend your game deserves. Zero infrastructure, infinite scale.**
 
-Supports **Roblox**, **FiveM/GTA**, **Garry's Mod**, and any Lua 5.1+ runtime.
+[![Release](https://img.shields.io/github/v/release/TesseractSoftwares/Praxsuite-SDK-Lua?style=flat-square&color=00d4aa&label=Latest%20Release)](https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua/releases)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0)
+[![Lua](https://img.shields.io/badge/Lua-5.1%2B-purple.svg?style=flat-square&logo=lua&logoColor=white)](https://www.lua.org/)
+[![Roblox](https://img.shields.io/badge/Roblox-Luau-ee3b3b.svg?style=flat-square&logo=roblox&logoColor=white)](https://create.roblox.com)
+[![FiveM](https://img.shields.io/badge/FiveM-Compatible-f58220.svg?style=flat-square)](https://fivem.net)
+[![Wally](https://img.shields.io/badge/Wally-Package-4c566a.svg?style=flat-square)](https://wally.run/package/tesseract/praxsuite-sdk)
+[![Discord](https://img.shields.io/badge/Discord-Community-5865F2.svg?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/praxsuite)
+[![Docs](https://img.shields.io/badge/Docs-praxsuite.com-00d4aa.svg?style=flat-square)](https://docs.praxsuite.com/sdk/lua)
+
+---
+
+Connect your game to a **production-ready backend** in 3 lines of code.  
+Query databases, trigger automations, track players — all through a single SDK.
+
+[**Get Started**](#quick-start-roblox) · [**API Reference**](#api-reference) · [**Examples**](./examples) · [**Discord**](https://discord.gg/praxsuite)
+
+</div>
+
+---
+
+## Why Praxsuite SDK?
+
+| Feature | Description |
+|---------|-------------|
+| **3-line setup** | Init, identify players, start querying. No server code needed. |
+| **Real database** | Full SQL-powered tables with queries, filters, pagination, and aggregations. |
+| **Sync endpoints** | Call a cloud automation and get a response in the same frame. |
+| **Player identity** | Automatic Roblox→Contact mapping. Know your players across sessions. |
+| **Retry & resilience** | Exponential backoff, automatic retries on transient failures. |
+| **Type-safe** | Full Luau type annotations for autocomplete in Roblox Studio. |
+| **Multi-platform** | Same API on Roblox, FiveM/GTA, Garry's Mod, and any Lua runtime. |
+
+---
+
+## Supported Platforms
+
+| Platform | Status | Language | Install Method |
+|----------|--------|----------|---------------|
+| **Roblox** | ✅ Production | Luau | Wally / Rojo / .rbxm download |
+| **FiveM/GTA** | 🔜 Coming soon | Lua 5.4 | Resource drop-in |
+| **Garry's Mod** | 🔜 Coming soon | GLua | Workshop addon |
+| **Generic** | 🔜 Coming soon | Lua 5.1+ | LuaRocks |
+
+---
 
 ## Quick Start (Roblox)
 
@@ -321,6 +368,162 @@ Use `Data.Batch()` to combine operations and stay under the 500 req/min limit.
 
 ---
 
-## License
+## Installation Methods
 
-MIT © Tesseract Softwares
+### Option A: Wally (Recommended for Rojo workflows)
+
+```toml
+[dependencies]
+PraxsuiteSDK = "tesseract/praxsuite-sdk@0.1.0"
+```
+
+### Option B: Download .rbxm (Drag-and-drop)
+
+1. Go to [**Releases**](https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua/releases/latest)
+2. Download `PraxsuiteSDK.rbxm`
+3. In Roblox Studio: right-click **ServerScriptService** → **Insert from File** → select `PraxsuiteSDK.rbxm`
+4. Done!
+
+### Option C: Rojo (Source sync)
+
+Clone this repo and add to your Rojo project:
+
+```json
+{
+  "tree": {
+    "ServerScriptService": {
+      "PraxsuiteSDK": {
+        "$path": "../Praxsuite-SDK-Lua/src"
+      }
+    }
+  }
+}
+```
+
+---
+
+## Full Example: RPG Game Backend
+
+```lua
+-- ServerScriptService/GameBackend.server.lua
+local Praxsuite = require(game.ServerScriptService.PraxsuiteSDK)
+local Players = game:GetService("Players")
+
+Praxsuite.Init({
+    workspaceId = "your-workspace-uuid",
+    apiKeySecret = "PraxsuiteKey",
+})
+
+-- Track all players
+Players.PlayerAdded:Connect(function(player)
+    Praxsuite.Players.Identify(player, {
+        metadata = { accountAge = player.AccountAge, premium = player.MembershipType ~= Enum.MembershipType.None }
+    })
+
+    -- Load or create player profile
+    local profile = Praxsuite.Data.Query("player_profiles", {
+        where = { roblox_id = player.UserId },
+        limit = 1,
+        asPlayer = player,
+    })
+
+    if #profile == 0 then
+        Praxsuite.Data.Insert("player_profiles", {
+            roblox_id = player.UserId,
+            display_name = player.DisplayName,
+            coins = 100,
+            level = 1,
+            created_at = os.time()
+        }, { asPlayer = player })
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    -- Save play session
+    Praxsuite.Endpoints.Fire("on-session-end", {
+        player_id = player.UserId,
+        session_end = os.time()
+    })
+    Praxsuite.Players.Forget(player)
+end)
+
+-- In-game purchase validation
+local function onPurchase(player, productId, receiptInfo)
+    local result = Praxsuite.Endpoints.Call("validate-purchase", {
+        player_id = player.UserId,
+        product_id = productId,
+        receipt = receiptInfo.PurchaseId
+    }, { asPlayer = player })
+
+    return result.approved
+end
+
+-- Leaderboard
+local function getLeaderboard()
+    return Praxsuite.Data.Query("player_profiles", {
+        select = { "display_name", "level", "coins" },
+        orderBy = { "level", "desc" },
+        limit = 100
+    })
+end
+```
+
+---
+
+## Architecture
+
+```
+┌──────────────────────┐         HTTPS          ┌─────────────────────────────┐
+│   Your Roblox Game   │ ──────────────────────► │  Praxsuite Gateway FrontDoor│
+│                      │                         │  (auth, rate limit, proxy)  │
+│  require(PraxsuiteSDK)                         └──────────────┬──────────────┘
+│  Praxsuite.Data.Query()                                       │ YARP
+│  Praxsuite.Endpoints.Call()                                   ▼
+│                      │                         ┌─────────────────────────────┐
+└──────────────────────┘                         │  Praxsuite Backend-Core     │
+                                                 │  (PraxQL, Automations, DB)  │
+                                                 └─────────────────────────────┘
+```
+
+---
+
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+
+```bash
+# Clone
+git clone https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua.git
+cd Praxsuite-SDK-Lua
+
+# Install Wally deps (if any)
+wally install
+
+# Build .rbxm artifact
+rojo build -o PraxsuiteSDK.rbxm
+```
+
+---
+
+## Security
+
+- API keys are **never stored in source code** — use Roblox Secrets Store
+- All communication is over **HTTPS** (TLS 1.2+)
+- Player identity headers are **validated per platform format** at the gateway
+- Rate limiting protects against abuse (both Roblox-side and gateway-side)
+
+Found a vulnerability? Email security@tesseractsoftwares.com
+
+---
+
+<div align="center">
+
+**Built with ❤️ by [Tesseract Softwares](https://tesseractsoftwares.com)**
+
+[Website](https://praxsuite.com) · [Documentation](https://docs.praxsuite.com) · [Discord](https://discord.gg/praxsuite) · [Twitter](https://twitter.com/praxsuite)
+
+---
+
+<sub>MIT © 2026 Tesseract Softwares. All rights reserved.</sub>
+
+</div>

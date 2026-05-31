@@ -1,0 +1,62 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build .rbxm Artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Aftman (toolchain manager)
+        uses: ok-nick/setup-aftman@v0.4.2
+
+      - name: Install Rojo
+        run: aftman install
+
+      - name: Build PraxsuiteSDK.rbxm
+        run: rojo build default.project.json -o PraxsuiteSDK.rbxm
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PraxsuiteSDK
+          path: PraxsuiteSDK.rbxm
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: PraxsuiteSDK.rbxm
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            ### Drag-and-Drop (easiest)
+            1. Download `PraxsuiteSDK.rbxm` below
+            2. In Roblox Studio: right-click **ServerScriptService** → **Insert from File**
+            3. Select the downloaded file — done!
+
+            ### Wally
+            ```toml
+            [dependencies]
+            PraxsuiteSDK = "tesseract/praxsuite-sdk@${{ github.ref_name }}"
+            ```
+
+            ### Rojo
+            ```bash
+            git clone https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua.git
+            ```
+
+            ---
+            See [README](https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua#readme) for full documentation.

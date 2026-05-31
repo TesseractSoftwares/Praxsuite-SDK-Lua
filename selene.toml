@@ -1,0 +1,8 @@
+std = "roblox"
+
+[config]
+default_severity = "warning"
+
+[rules]
+unused_variable = "allow"
+empty_if = "warn"
