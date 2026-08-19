@@ -24,3 +24,7 @@ Thumbs.db
 
 # Build
 dist/
+
+# Incomplete MCP bridge stub - no index.js, and declares MIT which contradicts LICENSE.
+# Excluded until it is either finished or removed.
+mcp-bridge/

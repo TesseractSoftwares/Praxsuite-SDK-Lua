@@ -1,0 +1,177 @@
+# Praxsuite SDK for Lua - validate, package, and mirror to GitHub
+#
+# Mirrors the Unity SDK's model so both SDKs work the same way: Azure DevOps is the source of
+# truth, and master publishes to the public GitHub repo.
+#
+# PR and development: validate only.
+# master:             validate, build the Rojo model, mirror the source to GitHub, and cut a
+#                     GitHub Release carrying the .rbxm.
+#
+# Note this repo previously lived on GitHub alone, with GitHub Actions as its only CI and
+# releases cut from tag pushes. That workflow still exists at .github/workflows/ and is left in
+# place so a fork or a direct GitHub contributor still gets checks - it is simply no longer the
+# release path.
+
+trigger:
+  branches:
+    include:
+      - master
+      - development
+  paths:
+    exclude:
+      - README.md
+      - CHANGELOG.md
+      - docs/*
+
+pr:
+  branches:
+    include:
+      - master
+      - development
+
+pool:
+  name: Tesseract-BuildPool
+  demands:
+    - Agent.OS -equals Linux
+
+variables:
+  isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+  githubRepo: 'TesseractSoftwares/Praxsuite-SDK-Lua'
+
+stages:
+
+# ─────────────────────────────────────────────────────────────────────────────
+- stage: Validate
+  displayName: 'Lint and build'
+  jobs:
+    - job: Validate
+      steps:
+        # Aftman pins Rojo/Selene/StyLua versions in aftman.toml, so CI uses exactly what a
+        # developer has locally rather than whatever is newest.
+        - script: |
+            set -e
+            curl -sSL https://github.com/LPGhatguy/aftman/releases/latest/download/aftman-linux.zip -o aftman.zip
+            unzip -q aftman.zip -d "$HOME/.aftman-bin"
+            chmod +x "$HOME/.aftman-bin/aftman"
+            echo "##vso[task.prependpath]$HOME/.aftman/bin"
+            echo "##vso[task.prependpath]$HOME/.aftman-bin"
+          displayName: 'Install Aftman'
+
+        - script: aftman install --no-trust-check
+          displayName: 'Install Rojo, Selene, StyLua'
+
+        - script: stylua --check src/
+          displayName: 'StyLua (formatting)'
+          continueOnError: true
+
+        - script: selene src/
+          displayName: 'Selene (lint)'
+          continueOnError: true
+
+        # The build is the real gate: a Lua syntax error or a broken project file fails here.
+        - script: |
+            set -e
+            rojo build default.project.json -o praxsuite-sdk.rbxm
+            test -s praxsuite-sdk.rbxm
+            echo "Built $(du -h praxsuite-sdk.rbxm | cut -f1)"
+          displayName: 'Rojo build'
+
+        - publish: praxsuite-sdk.rbxm
+          artifact: rbxm
+          displayName: 'Publish model artifact'
+
+        # This repo is mirrored to a PUBLIC GitHub repo, so hold it to the same standard as the
+        # Unity SDK: no secret keys, and no real workspace identifiers. A workspace GUID is not
+        # cosmetic - /auth/config is unauthenticated, so the GUID alone is enough to fetch that
+        # workspace's publishable key. One was found committed in docs/ and scrubbed.
+        - script: |
+            set -e
+            if grep -rEn 'sk_live_[A-Za-z0-9]{16,}' --include='*.lua' --include='*.md' \
+                 --include='*.toml' --include='*.json' --include='*.yml' \
+                 --exclude-dir=.git . ; then
+              echo "##vso[task.logissue type=error]A Praxsuite secret key is present. Revoke it now - this repo is mirrored publicly."
+              exit 1
+            fi
+            echo "No secret keys found."
+          displayName: 'Scan for leaked secret keys'
+
+# ─────────────────────────────────────────────────────────────────────────────
+- stage: Publish
+  displayName: 'Mirror to GitHub'
+  dependsOn: Validate
+  condition: and(succeeded(), eq(variables.isMaster, true))
+  jobs:
+    - job: Publish
+      steps:
+        # Full history: the mirror push needs real commits, not a shallow clone.
+        - checkout: self
+          fetchDepth: 0
+          persistCredentials: true
+
+        - task: AzureKeyVault@2
+          displayName: 'Read GitHub token'
+          inputs:
+            azureSubscription: 'Tesseract-CICD'
+            KeyVaultName: 'prax-cicd-kv'
+            SecretsFilter: 'GithubSdkMirrorToken'
+            RunAsPreJob: false
+
+        - download: current
+          artifact: rbxm
+
+        # wally.toml is the version source of truth, so a release cannot disagree with what
+        # the package manager reports.
+        - script: |
+            set -e
+            VERSION=$(grep -m1 '^version' wally.toml | sed 's/.*= *"\(.*\)"/\1/')
+            if [ -z "$VERSION" ]; then
+              echo "##vso[task.logissue type=error]wally.toml has no version field."
+              exit 1
+            fi
+            echo "Package version: $VERSION"
+            echo "##vso[task.setvariable variable=pkgVersion]$VERSION"
+          displayName: 'Read package version'
+
+        # --force-with-lease, not --force: if someone pushed to GitHub directly, fail loudly
+        # rather than destroy their commit. This repo had GitHub as its origin for months, so
+        # direct pushes are a real possibility here in a way they are not for the Unity SDK.
+        - script: |
+            set -e
+            git config user.email "ci@tesseractsoftwares.com"
+            git config user.name  "Tesseract CI"
+
+            git remote remove github 2>/dev/null || true
+            git remote add github "https://x-access-token:$(GithubSdkMirrorToken)@github.com/$(githubRepo).git"
+            git fetch github master || true
+
+            echo "Mirroring master to github.com/$(githubRepo)"
+            if ! git push github HEAD:refs/heads/master --force-with-lease; then
+              echo "##vso[task.logissue type=error]Mirror push rejected: GitHub has commits this repo does not. Reconcile them rather than forcing."
+              exit 1
+            fi
+            echo "Mirror complete."
+          displayName: 'Mirror source to GitHub'
+
+        # Idempotent: an existing tag is a no-op, so re-running a build never fails.
+        - script: |
+            set -e
+            TAG="v$(pkgVersion)"
+            API="https://api.github.com/repos/$(githubRepo)"
+            AUTH="Authorization: Bearer $(GithubSdkMirrorToken)"
+
+            if curl -sf -H "$AUTH" "$API/releases/tags/$TAG" >/dev/null; then
+              echo "Release $TAG already exists - nothing to publish."
+              exit 0
+            fi
+
+            NOTES="Install with Wally:\n\n    PraxsuiteSDK = \"tesseract/praxsuite-sdk@$(pkgVersion)\"\n\nOr drop the attached .rbxm into ServerScriptService.\n\nSee CHANGELOG.md for what changed."
+            RELEASE=$(curl -sf -X POST -H "$AUTH" "$API/releases" \
+              -d "{\"tag_name\":\"$TAG\",\"name\":\"Praxsuite SDK for Lua $(pkgVersion)\",\"body\":\"$NOTES\",\"draft\":false,\"prerelease\":false}")
+
+            RELEASE_ID=$(echo "$RELEASE" | grep -m1 '"id"' | sed 's/[^0-9]//g')
+            curl -sf -X POST -H "$AUTH" -H "Content-Type: application/octet-stream" \
+              --data-binary @"$(Pipeline.Workspace)/rbxm/praxsuite-sdk.rbxm" \
+              "https://uploads.github.com/repos/$(githubRepo)/releases/$RELEASE_ID/assets?name=praxsuite-sdk.rbxm" >/dev/null
+
+            echo "Published release $TAG"
+          displayName: 'Cut GitHub release'

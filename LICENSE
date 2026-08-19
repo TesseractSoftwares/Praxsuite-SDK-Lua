@@ -1,76 +1,132 @@
-Praxsuite SDK License Agreement
-Copyright (c) 2026 Tesseract Softwares. All rights reserved.
+Praxsuite SDK for Lua
+Copyright (c) 2026 Tesseract Softwares SpA. All rights reserved.
 
-================================================================================
+PRAXSUITE OPEN SDK LICENCE v1.0
+Source-available. Free to use and extend. Not free to resell.
 
-1. GRANT OF LICENSE
+--------------------------------------------------------------------------------
+PLAIN-LANGUAGE SUMMARY (not the licence - the terms below govern)
 
-   Tesseract Softwares ("Licensor") grants you a non-exclusive, non-transferable,
-   revocable, worldwide license to use, copy, and integrate this SDK ("Software")
-   solely for the purpose of connecting your applications to Praxsuite services
-   operated by Tesseract Softwares.
+  You MAY:
+    - use this SDK, free of charge, in any application or game you build,
+      including one you sell, as long as it connects to Praxsuite
+    - read, modify and fork the source
+    - publish your fork or your changes
+    - build and share extensions, wrappers and integrations
 
-2. RESTRICTIONS
+  You MAY NOT:
+    - sell, license or host this software itself as a product or service
+    - use it to build a competing backend platform, or to connect to one
+    - remove the attribution
 
-   You MAY NOT:
-   a) Sell, sublicense, rent, lease, or redistribute the Software as a standalone
-      product or as part of a competing service.
-   b) Modify, adapt, or create derivative works of the Software for the purpose
-      of circumventing Praxsuite service requirements or connecting to services
-      not operated by Tesseract Softwares.
-   c) Remove, alter, or obscure any copyright notices, trademarks, or proprietary
-      legends contained in or on the Software.
-   d) Reverse engineer, decompile, or disassemble the Software except to the
-      extent expressly permitted by applicable law.
-   e) Use the Software to build a product or service that competes with Praxsuite.
+  In short: build whatever you like on top of Praxsuite. Do not repackage this
+  work as someone else's product, and do not use it to power a competitor.
+--------------------------------------------------------------------------------
 
-3. PERMITTED USES
+1. DEFINITIONS
 
-   You MAY:
-   a) Use the Software in unlimited commercial and non-commercial projects that
-      connect to Praxsuite services.
-   b) Include the Software in your game/application builds distributed to end users.
-   c) Fork the repository for the sole purpose of submitting contributions
-      (pull requests) back to the official repository.
+   "Software" means this SDK: its source, documentation and any build artifact
+   produced from it.
 
-4. INTELLECTUAL PROPERTY
+   "Praxsuite Platform" means the hosted or licensed Praxsuite service operated
+   or authorised by Tesseract Softwares SpA.
 
-   The Software is and remains the sole property of Tesseract Softwares. This
-   license does not grant you any ownership rights in the Software. All rights
-   not expressly granted herein are reserved by Tesseract Softwares.
+   "Your Application" means software you develop that uses the Software to
+   communicate with the Praxsuite Platform - a Roblox experience, a FiveM server,
+   or any other game or application.
 
-5. NO WARRANTY
+   "Competing Service" means any product or service that provides
+   backend-as-a-service, database-as-a-service, application-platform or similar
+   functionality substantially equivalent to the Praxsuite Platform, whether
+   offered commercially or free of charge.
 
-   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
-   FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+2. GRANT
 
-6. LIMITATION OF LIABILITY
+   Subject to the restrictions in section 3, Tesseract Softwares SpA grants you
+   a worldwide, royalty-free, non-exclusive licence to:
 
-   IN NO EVENT SHALL TESSERACT SOFTWARES BE LIABLE FOR ANY CLAIM, DAMAGES, OR
-   OTHER LIABILITY ARISING FROM THE USE OF OR INABILITY TO USE THE SOFTWARE.
+   (a) use, copy and run the Software;
+   (b) modify the Software and create derivative works of it;
+   (c) distribute the Software and your modifications, in source or compiled
+       form, provided section 4 is met;
+   (d) include the Software, in source or compiled form, within Your
+       Application and distribute or sell Your Application.
 
-7. TERMINATION
+   Clause (d) is deliberate and unconditional as to price: you may charge for
+   Your Application, run it commercially, and keep all revenue. This licence
+   restricts what may be done with the Software itself, never what you charge
+   for the product you build with it.
 
-   This license terminates automatically if you violate any of its terms. Upon
-   termination, you must destroy all copies of the Software in your possession.
-   Tesseract Softwares may also terminate this license at any time by providing
-   30 days written notice.
+3. RESTRICTIONS
 
-8. ROBLOX CREATOR STORE DISTRIBUTION
+   3.1 No resale of the Software. You may not sell, rent, sublicense or
+       otherwise commercialise the Software as such - whether standalone, as a
+       component offered separately, as a paid SDK, library, template, plugin or
+       asset, or as a hosted or managed service whose value is the Software
+       itself.
 
-   The Software may be distributed via the Roblox Creator Store for convenience.
-   Downloading or installing the Software from any distribution channel constitutes
-   acceptance of this license. Roblox Corporation's terms of service apply
-   additionally to your use of their platform, but do not supersede this license
-   with respect to the Software's intellectual property.
+   3.2 No competing use. You may not use, modify or distribute the Software, or
+       any derivative of it, to build, operate, market or support a Competing
+       Service, nor adapt it to communicate with one.
+
+   3.3 No attribution removal. You may not remove or obscure the copyright
+       notices, this licence, or the attribution required by section 4.
+
+   3.4 No trademark rights. This licence grants no rights in the names, logos or
+       trademarks of Tesseract Softwares SpA or Praxsuite, beyond the factual
+       attribution section 4 requires.
+
+4. ATTRIBUTION
+
+   4.1 Any distribution of the Software or a derivative of it, in source or
+       compiled form, must retain this licence file and the copyright notice.
+
+   4.2 A derivative work that you publish must state, in its README or
+       equivalent primary documentation, that it is derived from the Praxsuite
+       SDK, and must link to https://praxsuite.com.
+
+   4.3 Your Application does not need to display attribution to end users.
+       Shipping the Software inside an application is not "distribution of the
+       Software" for the purposes of 4.2.
+
+5. CONTRIBUTIONS
+
+   Contributions submitted to the official repository are licensed to Tesseract
+   Softwares SpA under the same terms, and you confirm you have the right to
+   submit them. You keep the copyright in what you wrote.
+
+6. TERMINATION
+
+   This licence terminates automatically if you breach section 3. On
+   termination, stop using and distributing the Software. Applications you
+   already distributed to end users before termination may continue to be used
+   by those end users.
+
+7. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+8. LIMITATION OF LIABILITY
+
+   IN NO EVENT SHALL TESSERACT SOFTWARES SPA BE LIABLE FOR ANY CLAIM, DAMAGES
+   OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
 
 9. GOVERNING LAW
 
-   This agreement shall be governed by and construed in accordance with the laws
-   of the jurisdiction in which Tesseract Softwares is incorporated, without
-   regard to conflict of law principles.
+   This licence is governed by the laws of the Republic of Chile. Any dispute
+   shall be subject to the exclusive jurisdiction of the courts of Santiago,
+   Chile.
 
-================================================================================
+--------------------------------------------------------------------------------
+NOTE ON OSI TERMINOLOGY
 
-For questions about licensing or commercial use, contact: legal@tesseractsoftwares.com
+This licence is source-available, not open source as the OSI defines it: the
+field-of-use limits in section 3 fail OSI criteria 5 and 6. It is described
+here as an open SDK, never as OSI-approved or as an open-source licence, so the
+distinction is not misrepresented to anyone reading it.
+
+Questions, or need different terms for a specific case?  legal@tesseractsoftwares.com
+--------------------------------------------------------------------------------
