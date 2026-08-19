@@ -111,9 +111,9 @@ stages:
         - task: AzureKeyVault@2
           displayName: 'Read GitHub token'
           inputs:
-            azureSubscription: 'Tesseract-CICD'
+            azureSubscription: 'sc-acr-push-core-prod'
             KeyVaultName: 'prax-cicd-kv'
-            SecretsFilter: 'GithubSdkMirrorToken'
+            SecretsFilter: 'GITHUB-SDK-MIRROR-TOKEN'
             RunAsPreJob: false
 
         - download: current
@@ -141,7 +141,7 @@ stages:
             git config user.name  "Tesseract CI"
 
             git remote remove github 2>/dev/null || true
-            git remote add github "https://x-access-token:$(GithubSdkMirrorToken)@github.com/$(githubRepo).git"
+            git remote add github "https://x-access-token:$(GITHUB-SDK-MIRROR-TOKEN)@github.com/$(githubRepo).git"
             git fetch github master || true
 
             echo "Mirroring master to github.com/$(githubRepo)"
@@ -157,7 +157,7 @@ stages:
             set -e
             TAG="v$(pkgVersion)"
             API="https://api.github.com/repos/$(githubRepo)"
-            AUTH="Authorization: Bearer $(GithubSdkMirrorToken)"
+            AUTH="Authorization: Bearer $(GITHUB-SDK-MIRROR-TOKEN)"
 
             if curl -sf -H "$AUTH" "$API/releases/tags/$TAG" >/dev/null; then
               echo "Release $TAG already exists - nothing to publish."
