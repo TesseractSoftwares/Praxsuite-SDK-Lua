@@ -11,6 +11,13 @@ local PraxQL = {}
 --- Operator mapping for where clauses.
 --- Simple value: { column = value } → op: "eq"
 --- Object value: { column = { gt = 5 } } → op: "gt", value: 5
+---
+--- Only the operators the gateway's PraxQL parser actually accepts appear here. Until 1.0.0
+--- this table also offered notIn, isNull, isNotNull, startsWith and endsWith - the server
+--- implements none of them, so every call using one failed at runtime, in a live game.
+---
+--- Where a concept has no operator of its own it is TRANSLATED below into one that exists,
+--- rather than passed through and rejected.
 local OPERATORS = {
     eq = "eq",
     neq = "neq",
@@ -21,12 +28,21 @@ local OPERATORS = {
     like = "like",
     ilike = "ilike",
     ["in"] = "in",
-    notIn = "notIn",
-    isNull = "isNull",
-    isNotNull = "isNotNull",
+    is = "is",
+    between = "between",
     contains = "contains",
-    startsWith = "startsWith",
-    endsWith = "endsWith",
+    textsearch = "textsearch",
+}
+
+--- Convenience operators with no server-side equivalent, rewritten into one that has.
+--- Each returns the op and value to send.
+local TRANSLATIONS = {
+    -- "is" only tests for null server-side.
+    isNull      = function() return "is", nil, false end,
+    isNotNull   = function() return "neq", nil, false end,
+    startsWith  = function(v) return "like", tostring(v) .. "%", true end,
+    endsWith    = function(v) return "like", "%" .. tostring(v), true end,
+    notIn       = nil,  -- deliberately absent: see the error below
 }
 
 --- Build a PraxQL where array from a Lua-friendly where table.
@@ -47,20 +63,35 @@ function PraxQL.BuildWhere(where: { [string]: any }?): { any }?
             -- Operator object: { gt = 5 } or { ["in"] = {1,2,3} }
             for op, opValue in pairs(value) do
                 if OPERATORS[op] then
-                    if op == "isNull" or op == "isNotNull" then
-                        table.insert(conditions, {
-                            field = column,
-                            op = OPERATORS[op],
-                        })
+                    table.insert(conditions, {
+                        field = column,
+                        op = OPERATORS[op],
+                        value = opValue,
+                    })
+                elseif TRANSLATIONS[op] then
+                    -- A convenience name with no server-side operator: rewrite it.
+                    local mappedOp, mappedValue, hasValue = TRANSLATIONS[op](opValue)
+                    local condition = { field = column, op = mappedOp }
+                    if hasValue then
+                        condition.value = mappedValue
                     else
-                        table.insert(conditions, {
-                            field = column,
-                            op = OPERATORS[op],
-                            value = opValue,
-                        })
+                        -- isNull / isNotNull compare against null, which must be sent explicitly.
+                        condition.value = nil
                     end
+                    table.insert(conditions, condition)
+                elseif op == "notIn" then
+                    error(
+                        "[PraxsuiteSDK] There is no 'notIn' operator - the gateway does not "
+                        .. "implement one. Express it as a positive 'in' over the values you do "
+                        .. "want, or filter the result set in Lua."
+                    )
                 else
-                    error("[PraxsuiteSDK] Unknown operator '" .. tostring(op) .. "' for column '" .. column .. "'")
+                    error(
+                        "[PraxsuiteSDK] Unknown operator '" .. tostring(op) .. "' for column '"
+                        .. column .. "'. Supported: eq neq gt gte lt lte like ilike in is "
+                        .. "between contains textsearch, plus isNull isNotNull startsWith "
+                        .. "endsWith which are translated for you."
+                    )
                 end
             end
         else

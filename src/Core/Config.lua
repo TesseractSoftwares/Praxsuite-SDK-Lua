@@ -10,7 +10,10 @@ local Config = {}
 Config._workspaceId = nil :: string?
 Config._apiKeySecret = nil :: string?
 Config._apiKey = nil :: string?  -- Raw API key (for Studio testing; bypasses Secrets Store)
-Config._baseUrl = "https://gateway.praxsuite.com"
+-- Praxsuite runs several independent tiers and a workspace exists on exactly one. The wrong
+-- host returns 404, not a diagnosable error, so Init() requires this explicitly rather than
+-- defaulting a dedicated-tier workspace onto the cloud host.
+Config._baseUrl = nil :: string?
 Config._retryEnabled = true
 Config._maxRetries = 3
 Config._timeout = 30
@@ -18,10 +21,6 @@ Config._initialized = false
 
 -- Table registry: maps table names → UUIDs
 Config._tableRegistry = {} :: { [string]: string }
-
--- Player context (set per-request by Players module)
-Config._currentPlayerPlatform = nil :: string?
-Config._currentPlayerId = nil :: string?
 
 -- Auto-init callback (set by init.lua to enable auto-discovery)
 Config._autoInitFn = nil :: (() -> ())?

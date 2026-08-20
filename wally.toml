@@ -1,6 +1,6 @@
 [package]
 name = "tesseract/praxsuite-sdk"
-version = "0.1.0"
+version = "1.0.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "server"
 description = "Praxsuite SDK for Lua-based game engines (Roblox, FiveM, and more)"

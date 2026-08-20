@@ -1,7 +1,18 @@
 --[[
     Players - Player identity module.
-    Maps Roblox players to Praxsuite contacts via x-player-platform/x-player-id headers.
-    Handles player context for requests.
+
+    Records a Roblox player's identity against the workspace, for analytics, dashboards and
+    cross-platform account linking.
+
+    Read this before treating it as an authorisation mechanism, because it is not one. The
+    gateway does verify a Roblox UserId against the Roblox users API, so IsValidated means
+    something here - but the record is a label, not a permission. Nothing about it scopes a
+    query.
+
+    On Roblox that is fine: this SDK runs in ServerScriptService with a server key, so your
+    game server is the trusted party and enforces its own rules. The SetContext/ClearContext
+    functions that used to live here set x-player-platform / x-player-id headers which no
+    gateway code path reads; they have been removed rather than left to mislead.
 ]]
 
 local Config = require(script.Parent.Core.Config)
@@ -41,17 +52,14 @@ function Players.Identify(player: Player, options: {
         task.spawn(function()
             local Http = require(script.Parent.Core.Http)
             local ok, err = pcall(function()
-                Players.SetContext(player)
                 Http.Post("players/identify", {
                     platform = info.platform,
                     platformPlayerId = info.id,
                     displayName = info.displayName,
                     metadata = opts.metadata,
                 })
-                Players.ClearContext()
             end)
             if not ok then
-                Players.ClearContext()
                 warn("[PraxsuiteSDK] Failed to register player " .. info.id .. ": " .. tostring(err))
             end
         end)
@@ -62,28 +70,6 @@ end
 --- @param player Player - The Roblox Player instance
 function Players.Forget(player: Player)
     _identifiedPlayers[player.UserId] = nil
-end
-
---- Set the current player context for subsequent requests.
---- Headers x-player-platform and x-player-id will be included in the next request(s).
---- @param player Player - The Roblox Player instance
-function Players.SetContext(player: Player)
-    local info = _identifiedPlayers[player.UserId]
-    if info then
-        Config._currentPlayerPlatform = info.platform
-        Config._currentPlayerId = info.id
-    else
-        -- Player not identified yet, use raw info
-        Config._currentPlayerPlatform = "roblox"
-        Config._currentPlayerId = tostring(player.UserId)
-    end
-end
-
---- Clear the current player context.
---- Call after completing a player-scoped request (or use asPlayer option instead).
-function Players.ClearContext()
-    Config._currentPlayerPlatform = nil
-    Config._currentPlayerId = nil
 end
 
 --- Get the cached identity info for a player.

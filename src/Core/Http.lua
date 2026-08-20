@@ -38,12 +38,6 @@ local function buildHeaders(): { [string]: string }
 		["x-api-key"] = getApiKey(),
 	}
 
-	-- Inject player identity headers if context is set
-	if Config._currentPlayerPlatform then
-		headers["x-player-platform"] = Config._currentPlayerPlatform
-		headers["x-player-id"] = Config._currentPlayerId
-	end
-
 	return headers
 end
 

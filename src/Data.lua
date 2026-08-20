@@ -1,12 +1,24 @@
 --[[
     Data - Data operations module.
+
+    NOTE ON PER-PLAYER SCOPING (changed in 1.0.0)
+
+    Earlier versions accepted an `asPlayer` option on every call, which set
+    x-player-platform / x-player-id request headers. No code path in the Praxsuite gateway
+    reads those headers, so it scoped precisely nothing - it read like a security boundary
+    while being decorative. It has been removed rather than left in place.
+
+    This is not a loss of capability on Roblox. The SDK runs in ServerScriptService with a
+    server key, so YOUR game server is the trusted party: enforce per-player rules in your own
+    server code, the same way you would for any DataStore write. The gateway's row-filter
+    isolation exists for untrusted clients (a browser, a Unity build) which authenticate as an
+    end user - a different model from a trusted game server.
     Provides Query, Insert, Update, Delete, InsertMany, Count, and Batch.
     All operations go through the PraxQL query endpoint.
 ]]
 
 local Http = require(script.Parent.Core.Http)
 local PraxQL = require(script.Parent.Core.PraxQL)
-local Players = require(script.Parent.Players)
 
 local Data = {}
 
@@ -28,22 +40,15 @@ function Data.Query(tableName: string, options: {
     limit: number?,
     offset: number?,
     includeTotalCount: boolean?,
-    asPlayer: Player?,
 }?): { any }
     local opts = options or {}
 
     -- Set player context if provided
-    if opts.asPlayer then
-        Players.SetContext(opts.asPlayer)
-    end
 
     local body = PraxQL.BuildQuery(tableName, opts)
     local response = Http.Post("query", body)
 
     -- Clear player context after request
-    if opts.asPlayer then
-        Players.ClearContext()
-    end
 
     return response.body.data or response.body or {}
 end
@@ -61,20 +66,13 @@ end
 ---   })
 function Data.Insert(tableName: string, row: { [string]: any }, options: {
     returning: boolean?,
-    asPlayer: Player?,
 }?): any
     local opts = options or {}
 
-    if opts.asPlayer then
-        Players.SetContext(opts.asPlayer)
-    end
 
     local body = PraxQL.BuildInsert(tableName, { row }, opts.returning)
     local response = Http.Post("query", body)
 
-    if opts.asPlayer then
-        Players.ClearContext()
-    end
 
     local data = response.body.data or response.body
     if typeof(data) == "table" and data[1] then
@@ -95,21 +93,14 @@ end
 ---   })
 function Data.InsertMany(tableName: string, rows: { { [string]: any } }, options: {
     returning: boolean?,
-    asPlayer: Player?,
 }?): { any }
     local opts = options or {}
     assert(#rows > 0, "[PraxsuiteSDK] InsertMany requires at least one row")
 
-    if opts.asPlayer then
-        Players.SetContext(opts.asPlayer)
-    end
 
     local body = PraxQL.BuildInsert(tableName, rows, opts.returning)
     local response = Http.Post("query", body)
 
-    if opts.asPlayer then
-        Players.ClearContext()
-    end
 
     return response.body.data or response.body or {}
 end
@@ -127,18 +118,11 @@ end
 function Data.Update(tableName: string, options: {
     set: { [string]: any },
     where: { [string]: any },
-    asPlayer: Player?,
 }): any
-    if options.asPlayer then
-        Players.SetContext(options.asPlayer)
-    end
 
     local body = PraxQL.BuildUpdate(tableName, options)
     local response = Http.Post("query", body)
 
-    if options.asPlayer then
-        Players.ClearContext()
-    end
 
     return response.body
 end
@@ -154,18 +138,11 @@ end
 ---   })
 function Data.Delete(tableName: string, options: {
     where: { [string]: any },
-    asPlayer: Player?,
 }): any
-    if options.asPlayer then
-        Players.SetContext(options.asPlayer)
-    end
 
     local body = PraxQL.BuildDelete(tableName, options)
     local response = Http.Post("query", body)
 
-    if options.asPlayer then
-        Players.ClearContext()
-    end
 
     return response.body
 end
@@ -181,13 +158,22 @@ function Data.Count(tableName: string, where: { [string]: any }?): number
     local body = PraxQL.BuildQuery(tableName, {
         where = where,
         select = nil,
-        limit = 0,
+        limit = 1,   -- the gateway clamps limit up to a minimum of 1; a 0-row count is impossible
         includeTotalCount = true,
     })
 
     local response = Http.Post("query", body)
-    local meta = response.body.meta or response.body.metadata or {}
-    return meta.totalCount or 0
+    local meta = response.body.meta or {}
+
+    -- The gateway names this field "total" (PraxQLResultMeta). Reading "totalCount", as this
+    -- SDK did until now, silently returned 0 forever - no error, just a wrong number.
+    if meta.total == nil then
+        error(
+            "[PraxsuiteSDK] The gateway returned no total count. Aggregations may be disabled "
+            .. "on this table's scope - enable them in API Gateway settings."
+        )
+    end
+    return meta.total
 end
 
 export type BatchOperation = {
@@ -210,13 +196,9 @@ export type BatchOperation = {
 ---       { op = "update", table = "players", set = { last_active = os.time() }, where = { id = 1 } },
 ---   })
 function Data.Batch(operations: { BatchOperation }, options: {
-    asPlayer: Player?,
 }?): { any }
     local opts = options or {}
 
-    if opts.asPlayer then
-        Players.SetContext(opts.asPlayer)
-    end
 
     local results = {}
 
@@ -245,9 +227,6 @@ function Data.Batch(operations: { BatchOperation }, options: {
         table.insert(results, response.body)
     end
 
-    if opts.asPlayer then
-        Players.ClearContext()
-    end
 
     return results
 end

@@ -10,10 +10,14 @@
         local Praxsuite = require(game.ServerScriptService.PraxsuiteSDK)
         
         -- Production (published game): use Roblox Secrets Store
-        Praxsuite.Init({ workspaceId = "...", apiKeySecret = "PraxKey" })
-        
+        Praxsuite.Init({
+            workspaceId = "...",
+            apiKeySecret = "PraxKey",
+            baseUrl = "https://gateway.praxsuite.com",  -- required: match your workspace's tier
+        })
+
         -- Studio testing: pass raw API key directly
-        Praxsuite.Init({ workspaceId = "...", apiKey = "sk_live_..." })
+        Praxsuite.Init({ workspaceId = "...", apiKey = "sk_live_...", baseUrl = "https://..." })
     
         -- Any other script (already initialized, just use it):
         local Praxsuite = require(game.ServerScriptService.PraxsuiteSDK)
@@ -102,7 +106,17 @@ function Praxsuite.Init(options: {
 	Config._workspaceId = options.workspaceId
 	Config._apiKeySecret = options.apiKeySecret
 	Config._apiKey = options.apiKey
-	Config._baseUrl = options.baseUrl or "https://gateway.praxsuite.com"
+	-- Praxsuite runs several independent tiers and a workspace exists on exactly one. The wrong
+	-- host returns 404 rather than anything diagnosable, so this is required rather than
+	-- defaulted - a dedicated-tier workspace silently pointed at the cloud host was the single
+	-- most confusing failure this SDK produced.
+	assert(
+		options.baseUrl and #options.baseUrl > 0,
+		"[PraxsuiteSDK] baseUrl is required. Copy it from your workspace's API Gateway settings "
+			.. "page - e.g. https://gateway.praxsuite.com for Praxsuite Cloud. A workspace on a "
+			.. "dedicated tier has a different host, and the wrong one returns 404 on every call."
+	)
+	Config._baseUrl = options.baseUrl
 	Config._retryEnabled = if options.retryEnabled ~= nil then options.retryEnabled else true
 	Config._maxRetries = options.maxRetries or 3
 	Config._timeout = options.timeout or 30

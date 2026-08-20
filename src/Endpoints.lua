@@ -5,7 +5,6 @@
 
 local Http = require(script.Parent.Core.Http)
 local Config = require(script.Parent.Core.Config)
-local Players = require(script.Parent.Players)
 
 local Endpoints = {}
 
@@ -23,16 +22,12 @@ local Endpoints = {}
 ---   })
 ---   if result.approved then ... end
 function Endpoints.Call(slug: string, payload: any?, options: {
-    asPlayer: Player?,
     headers: { [string]: string }?,
     timeout: number?,
 }?): any
     Config.AssertInitialized()
     local opts = options or {}
 
-    if opts.asPlayer then
-        Players.SetContext(opts.asPlayer)
-    end
 
     local response = Http.Request(
         "POST",
@@ -41,9 +36,6 @@ function Endpoints.Call(slug: string, payload: any?, options: {
         opts.headers
     )
 
-    if opts.asPlayer then
-        Players.ClearContext()
-    end
 
     return response.body
 end
@@ -60,21 +52,14 @@ end
 ---       play_duration = os.time() - joinTime
 ---   })
 function Endpoints.Fire(slug: string, payload: any?, options: {
-    asPlayer: Player?,
     headers: { [string]: string }?,
 }?): boolean
     Config.AssertInitialized()
     local opts = options or {}
 
-    if opts.asPlayer then
-        Players.SetContext(opts.asPlayer)
-    end
 
     local ok, response = pcall(Http.Request, "POST", Config.GetUrl("endpoint/" .. slug), payload, opts.headers)
 
-    if opts.asPlayer then
-        Players.ClearContext()
-    end
 
     if not ok then
         -- Fire-and-forget: log warning but don't error
@@ -91,15 +76,11 @@ end
 --- @param payload table? - JSON payload
 --- @return any - Response body
 function Endpoints.Webhook(receiverId: string, payload: any?, options: {
-    asPlayer: Player?,
     headers: { [string]: string }?,
 }?): any
     Config.AssertInitialized()
     local opts = options or {}
 
-    if opts.asPlayer then
-        Players.SetContext(opts.asPlayer)
-    end
 
     local response = Http.Request(
         "POST",
@@ -108,9 +89,6 @@ function Endpoints.Webhook(receiverId: string, payload: any?, options: {
         opts.headers
     )
 
-    if opts.asPlayer then
-        Players.ClearContext()
-    end
 
     return response.body
 end
