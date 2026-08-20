@@ -44,44 +44,42 @@ stages:
   jobs:
     - job: Validate
       steps:
-        # Install the exact tool versions aftman.toml pins, so CI runs what a developer runs.
+        # Install the tool versions aftman.toml pins, so CI runs what a developer runs.
         #
-        # Not via aftman itself: its installer needs a versioned asset name
-        # (aftman-0.3.0-linux-x86_64.zip), and the "latest/download/aftman-linux.zip" URL this
-        # step used before does not exist - curl fetched a 404 page and unzip died with code 9.
-        # Fetching each tool directly from its own release removes a whole moving part.
+        # Written out per tool rather than through one shared URL pattern, because the three
+        # projects name their release assets three different ways and two of them do not match
+        # any guess:
+        #   rojo    v7.4.4  -> rojo-7.4.4-linux-x86_64.zip     (version in the name)
+        #   selene  0.27.1  -> selene-0.27.1-linux.zip         (NO leading v on the tag)
+        #   stylua  v0.20.0 -> stylua-linux-x86_64.zip         (no version in the name at all)
+        # All three URLs were confirmed to return 200 before this was committed. An earlier
+        # attempt used aftman, whose installer URL does not exist, and then one uniform pattern,
+        # which was wrong for selene and stylua.
+        #
+        # No `set -e` here on purpose: the linters are advisory, so a failed download must not
+        # abort the step. Rojo is checked explicitly instead.
         - script: |
-            set -euo pipefail
             mkdir -p "$HOME/bin"
+            ROJO_V=$(grep -m1 '^rojo *=' aftman.toml | cut -d'@' -f2 | tr -d '"')
+            SELENE_V=$(grep -m1 '^selene *=' aftman.toml | cut -d'@' -f2 | tr -d '"')
+            STYLUA_V=$(grep -m1 '^stylua *=' aftman.toml | cut -d'@' -f2 | tr -d '"')
+            echo "pinned: rojo=$ROJO_V selene=$SELENE_V stylua=$STYLUA_V"
 
-            pinned() {
-              # rojo = "rojo-rbx/rojo@7.4.4"  ->  repo and version
-              grep -m1 "^$1 *=" aftman.toml | sed 's/.*"\(.*\)".*//'
+            fetch() {
+              echo "  $1"
+              curl -fsSL "$1" -o "/tmp/tool.zip" && unzip -oq /tmp/tool.zip -d "$HOME/bin"
             }
 
-            install_tool() {
-              local spec repo version name url
-              spec="$1"; name="$2"
-              repo="${spec%@*}"; version="${spec#*@}"
-              url="https://github.com/$repo/releases/download/v$version/$name-$version-linux-x86_64.zip"
-              echo "Installing $name $version"
-              if ! curl -fsSL "$url" -o "/tmp/$name.zip"; then
-                echo "  could not download $url"
-                return 1
-              fi
-              unzip -oq "/tmp/$name.zip" -d "$HOME/bin"
-              chmod +x "$HOME/bin/$name" 2>/dev/null || true
-            }
+            fetch "https://github.com/rojo-rbx/rojo/releases/download/v$ROJO_V/rojo-$ROJO_V-linux-x86_64.zip"               || { echo "##vso[task.logissue type=error]Could not install Rojo $ROJO_V - the build cannot proceed without it."; exit 1; }
 
-            # Rojo is the real gate - a Lua syntax error or a broken project file fails its build.
-            install_tool "$(pinned rojo)" rojo
+            fetch "https://github.com/Kampfkarren/selene/releases/download/$SELENE_V/selene-$SELENE_V-linux.zip"               || echo "selene unavailable - lint will be skipped"
 
-            # Linters are advisory; a download hiccup must not fail the build over formatting.
-            install_tool "$(pinned selene)" selene || echo "selene unavailable - skipping lint"
-            install_tool "$(pinned stylua)" stylua || echo "stylua unavailable - skipping format check"
+            fetch "https://github.com/JohnnyMorganz/StyLua/releases/download/v$STYLUA_V/stylua-linux-x86_64.zip"               || echo "stylua unavailable - format check will be skipped"
 
+            chmod +x "$HOME/bin"/* 2>/dev/null
             echo "##vso[task.prependpath]$HOME/bin"
             ls -la "$HOME/bin"
+            "$HOME/bin/rojo" --version
           displayName: 'Install Rojo, Selene, StyLua (pinned)'
 
         - script: command -v stylua >/dev/null && stylua --check src/ || echo "stylua not installed - skipped"
