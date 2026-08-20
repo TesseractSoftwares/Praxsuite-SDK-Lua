@@ -30,9 +30,7 @@ pr:
       - development
 
 pool:
-  name: Tesseract-BuildPool
-  demands:
-    - Agent.OS -equals Linux
+  name: tesseract-buildpool
 
 variables:
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
