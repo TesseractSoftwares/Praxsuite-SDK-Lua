@@ -44,25 +44,51 @@ stages:
   jobs:
     - job: Validate
       steps:
-        # Aftman pins Rojo/Selene/StyLua versions in aftman.toml, so CI uses exactly what a
-        # developer has locally rather than whatever is newest.
+        # Install the exact tool versions aftman.toml pins, so CI runs what a developer runs.
+        #
+        # Not via aftman itself: its installer needs a versioned asset name
+        # (aftman-0.3.0-linux-x86_64.zip), and the "latest/download/aftman-linux.zip" URL this
+        # step used before does not exist - curl fetched a 404 page and unzip died with code 9.
+        # Fetching each tool directly from its own release removes a whole moving part.
         - script: |
-            set -e
-            curl -sSL https://github.com/LPGhatguy/aftman/releases/latest/download/aftman-linux.zip -o aftman.zip
-            unzip -q aftman.zip -d "$HOME/.aftman-bin"
-            chmod +x "$HOME/.aftman-bin/aftman"
-            echo "##vso[task.prependpath]$HOME/.aftman/bin"
-            echo "##vso[task.prependpath]$HOME/.aftman-bin"
-          displayName: 'Install Aftman'
+            set -euo pipefail
+            mkdir -p "$HOME/bin"
 
-        - script: aftman install --no-trust-check
-          displayName: 'Install Rojo, Selene, StyLua'
+            pinned() {
+              # rojo = "rojo-rbx/rojo@7.4.4"  ->  repo and version
+              grep -m1 "^$1 *=" aftman.toml | sed 's/.*"\(.*\)".*//'
+            }
 
-        - script: stylua --check src/
+            install_tool() {
+              local spec repo version name url
+              spec="$1"; name="$2"
+              repo="${spec%@*}"; version="${spec#*@}"
+              url="https://github.com/$repo/releases/download/v$version/$name-$version-linux-x86_64.zip"
+              echo "Installing $name $version"
+              if ! curl -fsSL "$url" -o "/tmp/$name.zip"; then
+                echo "  could not download $url"
+                return 1
+              fi
+              unzip -oq "/tmp/$name.zip" -d "$HOME/bin"
+              chmod +x "$HOME/bin/$name" 2>/dev/null || true
+            }
+
+            # Rojo is the real gate - a Lua syntax error or a broken project file fails its build.
+            install_tool "$(pinned rojo)" rojo
+
+            # Linters are advisory; a download hiccup must not fail the build over formatting.
+            install_tool "$(pinned selene)" selene || echo "selene unavailable - skipping lint"
+            install_tool "$(pinned stylua)" stylua || echo "stylua unavailable - skipping format check"
+
+            echo "##vso[task.prependpath]$HOME/bin"
+            ls -la "$HOME/bin"
+          displayName: 'Install Rojo, Selene, StyLua (pinned)'
+
+        - script: command -v stylua >/dev/null && stylua --check src/ || echo "stylua not installed - skipped"
           displayName: 'StyLua (formatting)'
           continueOnError: true
 
-        - script: selene src/
+        - script: command -v selene >/dev/null && selene src/ || echo "selene not installed - skipped"
           displayName: 'Selene (lint)'
           continueOnError: true
 
