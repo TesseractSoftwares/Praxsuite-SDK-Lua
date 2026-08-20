@@ -164,11 +164,25 @@ stages:
 
             git remote remove github 2>/dev/null || true
             git remote add github "https://x-access-token:$(GITHUB-SDK-MIRROR-TOKEN)@github.com/$(githubRepo).git"
-            git fetch github master || true
+            # --force-with-lease was used here, preceded by a fetch. That combination cannot
+            # protect anything: fetching sets the remote-tracking ref to whatever GitHub
+            # currently has, so the lease always matches and the push always wins. It silently
+            # overwrote commits pushed straight to the mirror.
+            #
+            # The check is now explicit. GitHub's head must be an ancestor of what we are about
+            # to push, or the mirror has history this repo does not and a human needs to look.
+            REMOTE_SHA=$(git ls-remote github refs/heads/master | cut -f1)
+            if [ -n "$REMOTE_SHA" ]; then
+              git fetch github master
+              if ! git merge-base --is-ancestor "$REMOTE_SHA" HEAD; then
+                echo "##vso[task.logissue type=error]github.com/$(githubRepo) is at $REMOTE_SHA, which is not an ancestor of this build. Someone pushed to the mirror directly. Reconcile it - do not overwrite."
+                exit 1
+              fi
+            fi
 
             echo "Mirroring master to github.com/$(githubRepo)"
-            if ! git push github HEAD:refs/heads/master --force-with-lease; then
-              echo "##vso[task.logissue type=error]Mirror push rejected: GitHub has commits this repo does not. Reconcile them rather than forcing."
+            if ! git push github HEAD:refs/heads/master; then
+              echo "##vso[task.logissue type=error]Mirror push failed. Check the token has contents:write on the mirror."
               exit 1
             fi
             echo "Mirror complete."
