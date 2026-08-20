@@ -174,40 +174,68 @@ stages:
             echo "Mirror complete."
           displayName: 'Mirror source to GitHub'
 
-        # Idempotent: an existing tag is a no-op, so re-running a build never fails.
+        # Every call below captures the HTTP status and prints GitHub's response when it is not
+        # what we expect.
+        #
+        # curl -f is deliberately absent. It exits 22 with no message and no body, which is how
+        # two builds failed here with an empty log while GitHub was willing to say plainly what
+        # was wrong. A publish step that cannot explain its own failure is not finished.
         - script: |
-            set -e
             TAG="v$(pkgVersion)"
             API="https://api.github.com/repos/$(githubRepo)"
             AUTH="Authorization: Bearer $(GITHUB-SDK-MIRROR-TOKEN)"
 
-            if curl -sf -H "$AUTH" "$API/releases/tags/$TAG" >/dev/null; then
+            # Idempotent: an existing release is a no-op, so re-running a build never fails.
+            CODE=$(curl -sS -o /tmp/existing.json -w '%{http_code}' -H "$AUTH" "$API/releases/tags/$TAG")
+            if [ "$CODE" = "200" ]; then
               echo "Release $TAG already exists - nothing to publish."
               exit 0
             fi
+            if [ "$CODE" != "404" ]; then
+              echo "##vso[task.logissue type=error]HTTP $CODE checking whether $TAG exists. GitHub said:"
+              cat /tmp/existing.json; echo
+              exit 1
+            fi
 
-            # The notes carry no double quotes and no newlines. The previous version escaped
-            # quotes inside NOTES, the shell turned them into real quotes, and the request body
-            # stopped being valid JSON - GitHub answered 400 and curl exited 22 with the release
-            # never created.
+            # The notes carry no double quotes and no newlines: escaped quotes here become real
+            # quotes once the shell expands them, and the body stops being valid JSON.
             NOTES="Add PraxsuiteSDK = tesseract/praxsuite-sdk@$(pkgVersion) to your wally.toml, or drop the attached .rbxm into ServerScriptService. See CHANGELOG.md for what changed."
-            RELEASE=$(curl -sf -X POST -H "$AUTH" -H "Content-Type: application/json" "$API/releases"               -d "{\"tag_name\":\"$TAG\",\"name\":\"Praxsuite SDK for Lua $(pkgVersion)\",\"body\":\"$NOTES\",\"draft\":false,\"prerelease\":false}")
+            CODE=$(curl -sS -o /tmp/release.json -w '%{http_code}' -X POST               -H "$AUTH" -H "Content-Type: application/json" -H "Accept: application/vnd.github+json"               "$API/releases"               -d "{\"tag_name\":\"$TAG\",\"name\":\"Praxsuite SDK for Lua $(pkgVersion)\",\"body\":\"$NOTES\",\"draft\":false,\"prerelease\":false}")
+            if [ "$CODE" != "201" ]; then
+              echo "##vso[task.logissue type=error]GitHub refused to create release $TAG (HTTP $CODE). It said:"
+              cat /tmp/release.json; echo
+              exit 1
+            fi
 
-            RELEASE_ID=$(echo "$RELEASE" | grep -o '"id": *[0-9]*' | head -1 | tr -dc '0-9')
+            RELEASE_ID=$(grep -o '"id": *[0-9]*' /tmp/release.json | head -1 | tr -dc '0-9')
             if [ -z "$RELEASE_ID" ]; then
-              echo "##vso[task.logissue type=error]Could not read the release id from the GitHub response."
+              echo "##vso[task.logissue type=error]Release $TAG was created but its id could not be read from:"
+              cat /tmp/release.json; echo
+              exit 1
+            fi
+            echo "Created release $TAG (id $RELEASE_ID)"
+
+            ASSET="$(Pipeline.Workspace)/rbxm/praxsuite-sdk.rbxm"
+            if [ ! -f "$ASSET" ]; then
+              echo "##vso[task.logissue type=error]The built .rbxm is missing at $ASSET."
+              ls -la "$(Pipeline.Workspace)" || true
               exit 1
             fi
 
-            curl -sf -X POST -H "$AUTH" -H "Content-Type: application/octet-stream"               --data-binary @"$(Pipeline.Workspace)/rbxm/praxsuite-sdk.rbxm"               "https://uploads.github.com/repos/$(githubRepo)/releases/$RELEASE_ID/assets?name=PraxsuiteSDK.rbxm" >/dev/null
+            CODE=$(curl -sS -o /tmp/asset.json -w '%{http_code}' -X POST               -H "$AUTH" -H "Content-Type: application/octet-stream"               --data-binary @"$ASSET"               "https://uploads.github.com/repos/$(githubRepo)/releases/$RELEASE_ID/assets?name=PraxsuiteSDK.rbxm")
+            if [ "$CODE" != "201" ]; then
+              echo "##vso[task.logissue type=error]The asset upload returned HTTP $CODE. GitHub said:"
+              cat /tmp/asset.json; echo
+              exit 1
+            fi
 
-            # Verify rather than trust: a release that exists with nothing attached is worse than
+            # Verify rather than trust. A release that exists with nothing attached is worse than
             # a failed build, because the pipeline reports success and nobody looks again.
-            ASSETS=$(curl -sf -H "$AUTH" "$API/releases/tags/$TAG" | grep -c '"state": *"uploaded"' || true)
-            if [ "$ASSETS" -lt 1 ]; then
-              echo "##vso[task.logissue type=error]Release $TAG was created but no asset attached."
+            ATTACHED=$(curl -sS -H "$AUTH" "$API/releases/tags/$TAG" | grep -c '"state": *"uploaded"')
+            if [ "$ATTACHED" -lt 1 ]; then
+              echo "##vso[task.logissue type=error]Release $TAG has no uploaded asset after the upload reported 201."
               exit 1
             fi
 
-            echo "Published release $TAG with $ASSETS asset(s)"
+            echo "Published release $TAG with $ATTACHED asset(s)"
           displayName: 'Cut GitHub release'
