@@ -90,11 +90,34 @@ stages:
           continueOnError: true
 
         # The build is the real gate: a Lua syntax error or a broken project file fails here.
+        #
+        # `test -s` only proves the file is non-empty, which is not the same as proving it carries
+        # the SDK. The TypeScript SDK published a tarball that was non-empty and contained no code
+        # at all, and every gate in that pipeline passed. So this also checks the output is a real
+        # Roblox binary model of a plausible size.
+        #
+        # A .rbxm is LZ4-compressed, so grepping it for Lua source proves nothing - the magic
+        # bytes and the chunk structure are what can actually be checked here.
         - script: |
             set -e
             rojo build default.project.json -o praxsuite-sdk.rbxm
             test -s praxsuite-sdk.rbxm
-            echo "Built $(du -h praxsuite-sdk.rbxm | cut -f1)"
+
+            SIZE=$(stat -c%s praxsuite-sdk.rbxm)
+            MAGIC=$(head -c 8 praxsuite-sdk.rbxm)
+            INST=$(grep -ac 'INST' praxsuite-sdk.rbxm || true)
+            echo "Built praxsuite-sdk.rbxm: $SIZE bytes, magic '$MAGIC', $INST INST chunk(s)."
+
+            if [ "$MAGIC" != '<roblox!' ]; then
+              echo "##vso[task.logissue type=error]praxsuite-sdk.rbxm is not a Roblox binary model (magic '$MAGIC')."
+              exit 1
+            fi
+            # The released 1.0.0 model is ~17 KB for the whole SDK; a stub would be a few hundred
+            # bytes and an empty project would have no INST chunks.
+            if [ "$SIZE" -lt 5000 ] || [ "$INST" -lt 1 ]; then
+              echo "##vso[task.logissue type=error]praxsuite-sdk.rbxm looks like an empty build ($SIZE bytes, $INST INST chunks)."
+              exit 1
+            fi
           displayName: 'Rojo build'
 
         - publish: praxsuite-sdk.rbxm
