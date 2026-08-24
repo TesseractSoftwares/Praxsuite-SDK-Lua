@@ -7,20 +7,18 @@
 **The backend your game deserves. Zero infrastructure, infinite scale.**
 
 [![Release](https://img.shields.io/github/v/release/TesseractSoftwares/Praxsuite-SDK-Lua?style=flat-square&color=00d4aa&label=Latest%20Release)](https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua/releases)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0)
+[![License](https://img.shields.io/badge/License-Praxsuite%20Open%20SDK-blue.svg?style=flat-square)](LICENSE)
 [![Lua](https://img.shields.io/badge/Lua-5.1%2B-purple.svg?style=flat-square&logo=lua&logoColor=white)](https://www.lua.org/)
 [![Roblox](https://img.shields.io/badge/Roblox-Luau-ee3b3b.svg?style=flat-square&logo=roblox&logoColor=white)](https://create.roblox.com)
 [![FiveM](https://img.shields.io/badge/FiveM-Compatible-f58220.svg?style=flat-square)](https://fivem.net)
-[![Wally](https://img.shields.io/badge/Wally-Package-4c566a.svg?style=flat-square)](https://wally.run/package/tesseract/praxsuite-sdk)
-[![Discord](https://img.shields.io/badge/Discord-Community-5865F2.svg?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/praxsuite)
-[![Docs](https://img.shields.io/badge/Docs-praxsuite.com-00d4aa.svg?style=flat-square)](https://docs.praxsuite.com/sdk/lua)
+[![Docs](https://img.shields.io/badge/Docs-praxsuite.com-00d4aa.svg?style=flat-square)](https://praxsuite.com)
 
 ---
 
 Connect your game to a **production-ready backend** in 3 lines of code.  
 Query databases, trigger automations, track players — all through a single SDK.
 
-[**Get Started**](#quick-start-roblox) · [**API Reference**](#api-reference) · [**Examples**](./examples) · [**Discord**](https://discord.gg/praxsuite)
+[**Get Started**](#quick-start-roblox) · [**API Reference**](#api-reference) · [**Examples**](./examples) · [**Issues**](https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua/issues)
 
 </div>
 
@@ -44,7 +42,7 @@ Query databases, trigger automations, track players — all through a single SDK
 
 | Platform | Status | Language | Install Method |
 |----------|--------|----------|---------------|
-| **Roblox** | ✅ Production | Luau | Wally / Rojo / .rbxm download |
+| **Roblox** | ✅ Production | Luau | Rojo / .rbxm download |
 | **FiveM/GTA** | 🔜 Coming soon | Lua 5.4 | Resource drop-in |
 | **Garry's Mod** | 🔜 Coming soon | GLua | Workshop addon |
 | **Generic** | 🔜 Coming soon | Lua 5.1+ | LuaRocks |
@@ -55,14 +53,17 @@ Query databases, trigger automations, track players — all through a single SDK
 
 ### 1. Install
 
-**Via Wally (recommended):**
-```toml
-# wally.toml
-[dependencies]
-PraxsuiteSDK = "tesseract/praxsuite-sdk@0.1.0"
-```
+Download `PraxsuiteSDK.rbxm` from
+[Releases](https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua/releases/latest), then in Roblox
+Studio right-click **ServerScriptService** → **Insert from File**.
 
-**Or copy `src/` folder** into `game.ServerScriptService.PraxsuiteSDK`.
+Or copy the `src/` folder into `game.ServerScriptService.PraxsuiteSDK`.
+
+> **Not on Wally.** This used to advertise `tesseract/praxsuite-sdk`, which never existed and can't:
+> wally grants a scope only when the publishing GitHub *user's own login* equals the scope name, and
+> the GitHub user `tesseract` belongs to someone else. An organisation can't hold a wally scope at
+> all — the registry authenticates a user, never an org. If you'd like a Wally package,
+> [open an issue](https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua/issues) and say so.
 
 ### 2. Store your API Key
 
@@ -370,21 +371,14 @@ Use `Data.Batch()` to combine operations and stay under the 500 req/min limit.
 
 ## Installation Methods
 
-### Option A: Wally (Recommended for Rojo workflows)
-
-```toml
-[dependencies]
-PraxsuiteSDK = "tesseract/praxsuite-sdk@0.1.0"
-```
-
-### Option B: Download .rbxm (Drag-and-drop)
+### Option A: Download .rbxm (Drag-and-drop)
 
 1. Go to [**Releases**](https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua/releases/latest)
 2. Download `PraxsuiteSDK.rbxm`
 3. In Roblox Studio: right-click **ServerScriptService** → **Insert from File** → select `PraxsuiteSDK.rbxm`
 4. Done!
 
-### Option C: Rojo (Source sync)
+### Option B: Rojo (Source sync)
 
 Clone this repo and add to your Rojo project:
 
@@ -555,7 +549,7 @@ Found a vulnerability? Email security@tesseractsoftwares.com
 
 **Built with ❤️ by [Tesseract Softwares](https://tesseractsoftwares.com)**
 
-[Website](https://praxsuite.com) · [Documentation](https://docs.praxsuite.com) · [Discord](https://discord.gg/praxsuite) · [Twitter](https://twitter.com/praxsuite)
+[Website](https://praxsuite.com) · [Issues](https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua/issues)
 
 ---
 

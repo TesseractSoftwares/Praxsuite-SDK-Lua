@@ -4,7 +4,11 @@ version = "1.0.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "server"
 description = "Praxsuite SDK for Lua-based game engines (Roblox, FiveM, and more)"
-license = "SEE LICENSE IN LICENSE"
+# SPDX, because that is what wally documents this field as - not npm's
+# "SEE LICENSE IN LICENSE", which is what the npm and Unity manifests correctly use and what this
+# said before. LicenseRef- is SPDX's own form for a licence that is not on its list, so this stays
+# a valid expression while pointing at the LICENSE file for the actual terms.
+license = "LicenseRef-Praxsuite-Open-SDK-1.0"
 authors = ["Tesseract Softwares"]
 
 [dependencies]

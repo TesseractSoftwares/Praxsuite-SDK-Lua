@@ -235,7 +235,16 @@ stages:
 
             # The notes carry no double quotes and no newlines: escaped quotes here become real
             # quotes once the shell expands them, and the body stops being valid JSON.
-            NOTES="Add PraxsuiteSDK = tesseract/praxsuite-sdk@$(pkgVersion) to your wally.toml, or drop the attached .rbxm into ServerScriptService. See CHANGELOG.md for what changed."
+            # No wally coordinate here until the package is actually published. This used to
+            # advertise tesseract/praxsuite-sdk, which can NEVER resolve: wally grants a scope only
+            # when the publishing GitHub user's own login equals the scope name, and the GitHub user
+            # "tesseract" (id 62144918) belongs to somebody else. So the v1.0.0 notes told every
+            # reader to add a dependency that does not exist and cannot be made to exist.
+            #
+            # Advertising an install route before it works is worse than advertising nothing: the
+            # .rbxm below actually does work, and a broken first instruction makes people doubt the
+            # second one.
+            NOTES="Drop the attached .rbxm into ServerScriptService. See CHANGELOG.md for what changed."
             CODE=$(curl -sS -o /tmp/release.json -w '%{http_code}' -X POST               -H "$AUTH" -H "Content-Type: application/json" -H "Accept: application/vnd.github+json"               "$API/releases"               -d "{\"tag_name\":\"$TAG\",\"name\":\"Praxsuite SDK for Lua $(pkgVersion)\",\"body\":\"$NOTES\",\"draft\":false,\"prerelease\":false}")
             if [ "$CODE" != "201" ]; then
               echo "##vso[task.logissue type=error]GitHub refused to create release $TAG (HTTP $CODE). It said:"

@@ -82,4 +82,5 @@ Use [GitHub Issues](https://github.com/TesseractSoftwares/Praxsuite-SDK-Lua/issu
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
+By contributing, you agree that your contributions will be licensed under the
+[Praxsuite Open SDK Licence](LICENSE), the same terms the rest of this SDK is under.
