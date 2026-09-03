@@ -39,6 +39,7 @@
 
 local Config = require(script.Core.Config)
 local Http = require(script.Core.Http)
+local Auth = require(script.Auth)
 local Data = require(script.Data)
 local Endpoints = require(script.Endpoints)
 local Players = require(script.Players)
@@ -99,6 +100,8 @@ function Praxsuite.Init(options: {
 	retryEnabled: boolean?,
 	maxRetries: number?,
 	timeout: number?,
+	authProvider: string?,
+	debug: boolean?,
 })
 	assert(options.workspaceId, "[PraxsuiteSDK] workspaceId is required")
 	assert(options.apiKeySecret or options.apiKey, "[PraxsuiteSDK] Either apiKeySecret or apiKey is required")
@@ -120,7 +123,13 @@ function Praxsuite.Init(options: {
 	Config._retryEnabled = if options.retryEnabled ~= nil then options.retryEnabled else true
 	Config._maxRetries = options.maxRetries or 3
 	Config._timeout = options.timeout or 30
+	-- The provider slug Auth.LoginPlayer asserts against; "roblox" unless the workspace
+	-- registered it under another name.
+	Config._authProvider = options.authProvider or "roblox"
+	Config._debug = options.debug or false
 	Config._initialized = true
+
+	Config.Log(" initialized — workspace %s, provider '%s', debug on", Config._workspaceId, Config._authProvider)
 
 	-- Auto-fetch schema in background (non-blocking — doesn't delay game start)
 	if options.autoFetchSchema ~= false then
@@ -142,6 +151,7 @@ function Praxsuite.IsInitialized(): boolean
 end
 
 --- Access submodules
+Praxsuite.Auth = Auth
 Praxsuite.Data = Data
 Praxsuite.Endpoints = Endpoints
 Praxsuite.Players = Players

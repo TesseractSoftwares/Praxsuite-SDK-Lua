@@ -257,6 +257,54 @@ Praxsuite.Data.Insert("Roblox Leaderboard", {
 
 ---
 
+## Sesiones por jugador (sin pantalla de login)
+
+Dentro de una experiencia de Roblox no hay navegador, así que un jugador no puede completar un
+redirect de OAuth ni se le puede pedir una contraseña sin que tú construyas el formulario. Lo que
+sí hay es tu servidor: lee `player.UserId` —que el jugador no puede manipular— y le dice a
+Praxsuite que esa sesión es de ese jugador.
+
+```lua
+game.Players.PlayerAdded:Connect(function(player)
+    Praxsuite.Auth.LoginPlayer(player)
+end)
+
+game.Players.PlayerRemoving:Connect(function(player)
+    Praxsuite.Auth.Forget(player)
+end)
+```
+
+Eso es todo el login. La primera vez Praxsuite crea la cuenta; las siguientes reconoce al jugador.
+
+**Para qué sirve:** cualquier operación acepta `asPlayer`, y entonces la petición viaja como la
+sesión de ese jugador en vez de como tu clave de servidor.
+
+```lua
+local misPartidas = Praxsuite.Data.Query("partidas", {
+    where = { completada = true },
+}, { asPlayer = player })
+```
+
+Con eso, los filtros de fila de la tabla se aplican a él: la query devuelve sus filas y las de
+nadie más, sin que tu código filtre por `UserId` y sin que el gateway tenga que confiar en que lo
+hiciste bien. Sin `asPlayer` nada cambia: se usa la clave del servidor, como siempre.
+
+**Requisitos en el workspace:** un proveedor con slug `roblox` registrado y activo en Settings del
+API Gateway, y que la clave que use el juego esté marcada para la plataforma `roblox`.
+
+**Qué se está confiando aquí:** tu clave de servidor, no el jugador. Quien tenga esa clave puede
+decir que es cualquier jugador, así que el gateway rechaza esta llamada si viene con una clave
+publicable (`pk_live_`), y la clave va en el Secrets Store de Roblox (`apiKeySecret`), nunca en un
+LocalScript. Las sesiones así emitidas quedan marcadas como "afirmadas por el servidor": suficiente
+para ser una cuenta con roles, y deliberadamente menos que un jugador que completó el OAuth de la
+plataforma desde un navegador.
+
+**Si el jugador entra pero no ve datos:** casi siempre es que el proveedor no tiene roles por
+defecto configurados. Una cuenta sin roles no alcanza ninguna tabla. Se configura en Settings del
+API Gateway, en el proveedor o a nivel de workspace.
+
+---
+
 ## Consejos de Producción
 
 - Usa `autoFetchSchema = false` y registra tablas manualmente — es más rápido y no depende de una llamada extra al inicio.

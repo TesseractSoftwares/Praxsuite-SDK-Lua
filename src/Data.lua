@@ -1,26 +1,51 @@
 --[[
     Data - Data operations module.
 
-    NOTE ON PER-PLAYER SCOPING (changed in 1.0.0)
-
-    Earlier versions accepted an `asPlayer` option on every call, which set
-    x-player-platform / x-player-id request headers. No code path in the Praxsuite gateway
-    reads those headers, so it scoped precisely nothing - it read like a security boundary
-    while being decorative. It has been removed rather than left in place.
-
-    This is not a loss of capability on Roblox. The SDK runs in ServerScriptService with a
-    server key, so YOUR game server is the trusted party: enforce per-player rules in your own
-    server code, the same way you would for any DataStore write. The gateway's row-filter
-    isolation exists for untrusted clients (a browser, a Unity build) which authenticate as an
-    end user - a different model from a trusted game server.
     Provides Query, Insert, Update, Delete, InsertMany, Count, and Batch.
     All operations go through the PraxQL query endpoint.
+
+    PER-PLAYER SCOPING (`asPlayer`)
+
+    Every call takes an optional `asPlayer = player`, and the request then goes out as that
+    player's own session rather than as your server key. What that buys: the table's row filters
+    apply to them, so a query returns their rows and nobody else's, without your code filtering
+    by UserId and without the gateway trusting it to.
+
+        Praxsuite.Data.Query("saves", { where = { level = { gt = 5 } } }, { asPlayer = player })
+
+    Some history, because this option existed before and did nothing. Until 1.0.0 `asPlayer`
+    set x-player-platform / x-player-id headers that no gateway code path read: it looked like a
+    security boundary while scoping precisely nothing, and it was removed rather than left to
+    mislead. It is back now because there is finally a real per-player session behind it
+    (Auth.LoginPlayer), issued by the gateway and carrying the player's roles.
+
+    Without `asPlayer` nothing changes: the call uses the server key, your game server is the
+    trusted party, and per-player rules are yours to enforce - as with any DataStore write.
 ]]
 
+local Config = require(script.Parent.Core.Config)
 local Http = require(script.Parent.Core.Http)
 local PraxQL = require(script.Parent.Core.PraxQL)
 
 local Data = {}
+
+--- Internal: resolves `asPlayer` to a session token, signing the player in if needed.
+--- Returns nil when no player was given, which makes the request use the server key.
+local function tokenFor(opts: { asPlayer: Player? }?): string?
+    if not opts or not opts.asPlayer then
+        return nil
+    end
+    local Auth = require(script.Parent.Auth)
+    return Auth.GetTokenFor(opts.asPlayer)
+end
+
+--- Internal: one line naming what is about to happen, before Http even builds the request —
+--- so a scan of the log reads "Query saves as MirkOwwO" rather than requiring the reader to
+--- match up a PraxQL body with an Http line further down.
+local function announce(op: string, tableName: string, opts: { asPlayer: Player? }?)
+    local as = if opts and opts.asPlayer then opts.asPlayer.Name else "server key"
+    Config.Log("[Data] %s %s  as %s", op, tableName, as)
+end
 
 --- Query rows from a table.
 --- @param tableName string - The table name (must be registered in schema)
@@ -40,17 +65,16 @@ function Data.Query(tableName: string, options: {
     limit: number?,
     offset: number?,
     includeTotalCount: boolean?,
-}?): { any }
+}?, requestOptions: { asPlayer: Player? }?): { any }
     local opts = options or {}
-
-    -- Set player context if provided
+    announce("Query", tableName, requestOptions)
 
     local body = PraxQL.BuildQuery(tableName, opts)
-    local response = Http.Post("query", body)
+    local response = Http.Post("query", body, tokenFor(requestOptions))
 
-    -- Clear player context after request
-
-    return response.body.data or response.body or {}
+    local rows = response.body.data or response.body or {}
+    Config.Log("[Data] Query %s  -> %d row(s)", tableName, typeof(rows) == "table" and #rows or -1)
+    return rows
 end
 
 --- Insert a single row into a table.
@@ -66,12 +90,12 @@ end
 ---   })
 function Data.Insert(tableName: string, row: { [string]: any }, options: {
     returning: boolean?,
-}?): any
+}?, requestOptions: { asPlayer: Player? }?): any
     local opts = options or {}
-
+    announce("Insert", tableName, requestOptions)
 
     local body = PraxQL.BuildInsert(tableName, { row }, opts.returning)
-    local response = Http.Post("query", body)
+    local response = Http.Post("query", body, tokenFor(requestOptions))
 
 
     local data = response.body.data or response.body
@@ -93,13 +117,13 @@ end
 ---   })
 function Data.InsertMany(tableName: string, rows: { { [string]: any } }, options: {
     returning: boolean?,
-}?): { any }
+}?, requestOptions: { asPlayer: Player? }?): { any }
     local opts = options or {}
     assert(#rows > 0, "[PraxsuiteSDK] InsertMany requires at least one row")
-
+    announce("InsertMany (" .. #rows .. " rows)", tableName, requestOptions)
 
     local body = PraxQL.BuildInsert(tableName, rows, opts.returning)
-    local response = Http.Post("query", body)
+    local response = Http.Post("query", body, tokenFor(requestOptions))
 
 
     return response.body.data or response.body or {}
@@ -118,10 +142,10 @@ end
 function Data.Update(tableName: string, options: {
     set: { [string]: any },
     where: { [string]: any },
-}): any
-
+}, requestOptions: { asPlayer: Player? }?): any
+    announce("Update", tableName, requestOptions)
     local body = PraxQL.BuildUpdate(tableName, options)
-    local response = Http.Post("query", body)
+    local response = Http.Post("query", body, tokenFor(requestOptions))
 
 
     return response.body
@@ -138,10 +162,10 @@ end
 ---   })
 function Data.Delete(tableName: string, options: {
     where: { [string]: any },
-}): any
-
+}, requestOptions: { asPlayer: Player? }?): any
+    announce("Delete", tableName, requestOptions)
     local body = PraxQL.BuildDelete(tableName, options)
-    local response = Http.Post("query", body)
+    local response = Http.Post("query", body, tokenFor(requestOptions))
 
 
     return response.body
@@ -154,7 +178,8 @@ end
 ---
 --- Example:
 ---   local online = Praxsuite.Data.Count("players", { is_online = true })
-function Data.Count(tableName: string, where: { [string]: any }?): number
+function Data.Count(tableName: string, where: { [string]: any }?, requestOptions: { asPlayer: Player? }?): number
+    announce("Count", tableName, requestOptions)
     local body = PraxQL.BuildQuery(tableName, {
         where = where,
         select = nil,
@@ -162,7 +187,7 @@ function Data.Count(tableName: string, where: { [string]: any }?): number
         includeTotalCount = true,
     })
 
-    local response = Http.Post("query", body)
+    local response = Http.Post("query", body, tokenFor(requestOptions))
     local meta = response.body.meta or {}
 
     -- The gateway names this field "total" (PraxQLResultMeta). Reading "totalCount", as this
@@ -196,13 +221,19 @@ export type BatchOperation = {
 ---       { op = "update", table = "players", set = { last_active = os.time() }, where = { id = 1 } },
 ---   })
 function Data.Batch(operations: { BatchOperation }, options: {
-}?): { any }
+}?, requestOptions: { asPlayer: Player? }?): { any }
     local opts = options or {}
+    Config.Log("[Data] Batch (%d operations)  as %s",
+        #operations, if requestOptions and requestOptions.asPlayer then requestOptions.asPlayer.Name else "server key")
 
+    -- Resolved once, not per operation: the session is the same for every request in the batch,
+    -- and asking for it inside the loop would re-check expiry on each one.
+    local token = tokenFor(requestOptions)
 
     local results = {}
 
-    for _, operation in ipairs(operations) do
+    for i, operation in ipairs(operations) do
+        Config.Log("[Data]   %d/%d: %s %s", i, #operations, operation.op, operation.table)
         local body
 
         if operation.op == "insert" then
@@ -223,7 +254,7 @@ function Data.Batch(operations: { BatchOperation }, options: {
             error("[PraxsuiteSDK] Unknown batch operation: " .. tostring(operation.op))
         end
 
-        local response = Http.Post("query", body)
+        local response = Http.Post("query", body, token)
         table.insert(results, response.body)
     end
 

@@ -32,7 +32,20 @@ end
 
 --- Internal: Build default headers for every request.
 --- Reuses cached API key — zero repeated Secret Store lookups.
-local function buildHeaders(): { [string]: string }
+---
+--- With an authToken (a player's session from Auth.LoginPlayer) the request goes out AS THAT
+--- PLAYER and the server key is left out entirely. That is not a style choice: the gateway
+--- reads one token per request, so sending both would just mean one of them is ignored — and
+--- the whole point of a player session is that the request carries the player's own scopes and
+--- row filters instead of the server key's.
+local function buildHeaders(authToken: string?): { [string]: string }
+	if authToken then
+		return {
+			["Content-Type"] = "application/json",
+			["Authorization"] = "Bearer " .. authToken,
+		}
+	end
+
 	local headers = {
 		["Content-Type"] = "application/json",
 		["x-api-key"] = getApiKey(),
@@ -82,10 +95,11 @@ export type HttpError = {
 }
 
 --- Make an HTTP request with automatic retry on transient failures.
-function Http.Request(method: string, url: string, body: any?, extraHeaders: { [string]: string }?): HttpResponse
+--- @param authToken string? - a player's session token; sent instead of the server key.
+function Http.Request(method: string, url: string, body: any?, extraHeaders: { [string]: string }?, authToken: string?): HttpResponse
     Config.AssertInitialized()
 
-    local headers = buildHeaders()
+    local headers = buildHeaders(authToken)
     if extraHeaders then
         for k, v in pairs(extraHeaders) do
             headers[k] = v
@@ -96,6 +110,13 @@ function Http.Request(method: string, url: string, body: any?, extraHeaders: { [
     if body ~= nil then
         requestBody = HttpService:JSONEncode(body)
     end
+
+    -- Which credential this request rides on, in the words a human reads: not which header
+    -- (that's an implementation detail this log intentionally hides), but who is asking.
+    local asWhom = if authToken
+        then "player session (" .. Config.MaskSecret(authToken) .. ")"
+        else "server key (" .. Config.MaskSecret(Config._apiKey or Config._apiKeySecret) .. ")"
+    Config.Log("[Http] -> %s %s  as %s", method, url, asWhom)
 
     local lastError = nil
     local maxAttempts = if Config._retryEnabled then Config._maxRetries + 1 else 1
@@ -112,6 +133,7 @@ function Http.Request(method: string, url: string, body: any?, extraHeaders: { [
             local parsed = parseBody(response.Body)
 
             if response.Success then
+                Config.Log("[Http] <- %d %s", response.StatusCode, url)
                 return {
                     status = response.StatusCode,
                     body = parsed,
@@ -123,6 +145,8 @@ function Http.Request(method: string, url: string, body: any?, extraHeaders: { [
             -- Non-success status
             if isRetryable(response.StatusCode) and attempt < maxAttempts then
                 local delay = getBackoffDelay(attempt)
+                Config.Log("[Http] <- %d %s  retrying in %.1fs (attempt %d/%d)",
+                    response.StatusCode, url, delay, attempt, maxAttempts)
                 task.wait(delay)
                 lastError = {
                     code = "HTTP_" .. tostring(response.StatusCode),
@@ -147,12 +171,15 @@ function Http.Request(method: string, url: string, body: any?, extraHeaders: { [
                 elseif typeof(parsed) == "string" then
                     detail = " | " .. parsed
                 end
+                Config.Log("[Http] <- %d %s  %s", response.StatusCode, url, code)
                 error("[PraxsuiteSDK] " .. code .. ": " .. msg .. detail)
             end
         else
             -- pcall failed (network error, timeout, etc.)
             if attempt < maxAttempts then
                 local delay = getBackoffDelay(attempt)
+                Config.Log("[Http] xx %s  network error, retrying in %.1fs (attempt %d/%d): %s",
+                    url, delay, attempt, maxAttempts, tostring(response))
                 task.wait(delay)
                 lastError = {
                     code = "NETWORK_ERROR",
@@ -160,6 +187,7 @@ function Http.Request(method: string, url: string, body: any?, extraHeaders: { [
                     status = 0,
                 }
             else
+                Config.Log("[Http] xx %s  network error, giving up: %s", url, tostring(response))
                 error("[PraxsuiteSDK] NETWORK_ERROR: " .. tostring(response))
             end
         end
@@ -170,13 +198,15 @@ function Http.Request(method: string, url: string, body: any?, extraHeaders: { [
 end
 
 --- Shorthand POST request.
-function Http.Post(path: string, body: any?): HttpResponse
-    return Http.Request("POST", Config.GetUrl(path), body)
+--- @param authToken string? - a player's session token; sent instead of the server key.
+function Http.Post(path: string, body: any?, authToken: string?): HttpResponse
+    return Http.Request("POST", Config.GetUrl(path), body, nil, authToken)
 end
 
 --- Shorthand GET request.
-function Http.Get(path: string): HttpResponse
-    return Http.Request("GET", Config.GetUrl(path))
+--- @param authToken string? - a player's session token; sent instead of the server key.
+function Http.Get(path: string, authToken: string?): HttpResponse
+    return Http.Request("GET", Config.GetUrl(path), nil, nil, authToken)
 end
 
 return Http

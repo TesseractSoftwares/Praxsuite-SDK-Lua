@@ -3,6 +3,49 @@
 All notable changes to the Praxsuite SDK for Lua.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **`Auth` module — per-player sessions, so a Roblox game needs no login screen.**
+  `Auth.LoginPlayer(player)` on `PlayerAdded` is the whole sign-in: the server reads
+  `player.UserId`, which the player cannot tamper with, and Praxsuite creates the account on
+  first sight and returns a token scoped to it. Sessions are cached per UserId in server memory
+  and renewed a minute before they expire. Requires a provider with slug `roblox` registered in
+  the workspace and a server key marked for that platform.
+
+- **`asPlayer` is back on every data operation**, and this time it does something. Until 1.0.0 it
+  set `x-player-platform` / `x-player-id` headers that no gateway code path read — it looked like
+  a security boundary while scoping nothing, and was removed rather than left to mislead. It now
+  sends the player's own session, so the table's row filters apply to them: a query returns their
+  rows and nobody else's, without your code filtering by `UserId`.
+
+  ```lua
+  Praxsuite.Data.Query("saves", { where = { level = { gt = 5 } } }, { asPlayer = player })
+  ```
+
+  `Endpoints.Call` and `Endpoints.Fire` take it too. Without it, nothing changes: the request uses
+  the server key.
+
+- `Init` accepts `authProvider` for a workspace that registered the provider under a slug other
+  than `roblox`.
+
+- **`Init({ debug = true })`** narrates every request and every session decision to the output:
+  which URL, which credential (server key or a specific player's token — always masked, never
+  printed whole), the status that came back, and whether `Auth.LoginPlayer` opened a new session
+  or reused a cached one. Off by default, so a published game stays quiet; turn it on while
+  learning the SDK or diagnosing a workspace.
+
+  ```
+  [PraxsuiteSDK][Auth] MirkOwwO (1727723724): no session yet — asserting against provider 'roblox'
+  [PraxsuiteSDK][Http] -> POST .../auth/roblox/assert  as server key (sk_live_…b1d3 (72 chars))
+  [PraxsuiteSDK][Http] <- 200 .../auth/roblox/assert
+  [PraxsuiteSDK][Auth] MirkOwwO (1727723724): session opened — account 1ad0ad19-..., expires in 900s
+  [PraxsuiteSDK][Data] Query saves  as MirkOwwO
+  [PraxsuiteSDK][Http] -> POST .../query  as player session (eyJhbGci…pO_w (617 chars))
+  [PraxsuiteSDK][Data] Query saves  -> 0 row(s)
+  ```
+
 ## [1.0.0] - 2026-08-20
 
 Four bugs fixed. Each one failed silently or at runtime rather than at build time, and each has

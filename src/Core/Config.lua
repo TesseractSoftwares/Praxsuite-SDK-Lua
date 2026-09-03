@@ -19,6 +19,16 @@ Config._maxRetries = 3
 Config._timeout = 30
 Config._initialized = false
 
+-- Which registered provider Auth.LoginPlayer asserts against. "roblox" is what the provider is
+-- called in a workspace that added it from the portal; override only if yours uses another slug.
+Config._authProvider = "roblox"
+
+-- When true, Http/Auth/Data narrate every request and every session decision to the output —
+-- what URL, which credential (server key or a specific player's token, always masked), the
+-- status that came back. Off by default: a shipped game should not spam its own console. Turn
+-- it on with Init({ debug = true }) while you are learning the SDK or diagnosing a workspace.
+Config._debug = false
+
 -- Table registry: maps table names → UUIDs
 Config._tableRegistry = {} :: { [string]: string }
 
@@ -55,6 +65,26 @@ function Config.GetUrl(path: string): string
 		Config._urlPrefix = Config._baseUrl .. "/api/v1/gateway/" .. Config._workspaceId .. "/"
 	end
 	return Config._urlPrefix .. path
+end
+
+--- Internal: prints when debug mode is on, and only then. Every call site prefixes its own tag
+--- ([Http], [Auth], [Data]) so a busy log stays scannable.
+function Config.Log(fmt: string, ...: any)
+	if Config._debug then
+		print("[PraxsuiteSDK]" .. string.format(fmt, ...))
+	end
+end
+
+--- Internal: the last N characters of a secret, never the secret itself. Used to show that two
+--- log lines are talking about the same credential without ever printing one whole.
+function Config.MaskSecret(secret: string?): string
+	if not secret or #secret == 0 then
+		return "<none>"
+	end
+	if #secret <= 12 then
+		return string.rep("*", #secret)
+	end
+	return secret:sub(1, 8) .. "…" .. secret:sub(-4) .. " (" .. #secret .. " chars)"
 end
 
 --- Resolve a table name to its UUID from the registry.
