@@ -44,6 +44,7 @@ local Data = require(script.Data)
 local Endpoints = require(script.Endpoints)
 local Players = require(script.Players)
 local Schema = require(script.Schema)
+local Bus = require(script.Bus)
 
 local Praxsuite = {}
 
@@ -156,6 +157,13 @@ Praxsuite.Data = Data
 Praxsuite.Endpoints = Endpoints
 Praxsuite.Players = Players
 Praxsuite.Schema = Schema
+
+-- The Event Bus: ephemeral realtime between connected clients.
+--
+-- It needs an END-USER access token, which this SDK has no auth module to mint - see the
+-- note at the top of Bus.lua. To push to connected clients FROM a Roblox server, call an
+-- endpoint whose automation publishes instead; that path uses the API key you already have.
+Praxsuite.Bus = Bus
 Praxsuite.Config = Config
 
 return Praxsuite
