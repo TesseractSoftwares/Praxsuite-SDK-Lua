@@ -46,6 +46,31 @@ This project follows [Semantic Versioning](https://semver.org/).
   [PraxsuiteSDK][Data] Query saves  -> 0 row(s)
   ```
 
+- **`Praxsuite.Bus` - the Event Bus.** Ephemeral realtime between connected clients:
+  cross-server positions, a shared world clock, "somebody is in the shop". `Connect`, `Join`,
+  `Publish`, `Leave`, `On`, `OnPeerJoined`, `OnPeerLeft`. `Join` returns every peer's retained
+  state, so a late joiner sees the room rather than an empty one until somebody moves.
+
+  ```lua
+  Praxsuite.Bus.Connect(player)          -- signs the player in if needed, via Auth
+  Praxsuite.Bus.On("office:hq", "move", function(payload, fromUserId) ... end)
+  for _, peer in ipairs(Praxsuite.Bus.Join("office:hq") or {}) do ... end
+  Praxsuite.Bus.Publish("office:hq", "move", { x = x, y = y })
+  ```
+
+  It authenticates with a PLAYER's token, not with the server key: the hub admits only the
+  gateway end-user scheme, and a negotiate carrying `x-api-key` returns 401 (measured
+  2026-09-07). `Bus.Connect(player)` goes through `Auth.GetTokenFor`, so it reuses the same
+  cached session `asPlayer` uses and opens no second one.
+
+  It runs on SignalR's **long-polling** transport, because Roblox's `HttpService` cannot open a
+  WebSocket at all. Not a compromise for convenience: it is the only transport this runtime
+  has, and the whole cycle was measured working against the live hub first.
+
+  Nothing on the bus is persisted - no history, no retry, no delivery to anyone who was not
+  connected. If losing a message matters, it belongs in a table via `Praxsuite.Data`. And to
+  push to connected clients from the server with no player token at all, call an endpoint whose
+  automation publishes.
 ## [1.0.0] - 2026-08-20
 
 Four bugs fixed. Each one failed silently or at runtime rather than at build time, and each has

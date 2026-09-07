@@ -138,6 +138,67 @@ Praxsuite.Endpoints.Fire("on-player-leave", {
 })
 ```
 
+## The Event Bus
+
+Ephemeral realtime between connected clients: cross-server player positions, a shared world
+clock, "somebody is in the shop". State that is *changing*, where losing a message is fine
+because a newer one is 100ms behind it.
+
+It authenticates as a **player**, not as the server: the hub admits only the gateway end-user
+scheme, and a negotiate carrying `x-api-key` returns 401 (measured 2026-09-07). `Bus.Connect`
+takes a `Player` and goes through `Auth.GetTokenFor`, so it reuses the same cached session
+`asPlayer` already uses rather than opening a second one.
+
+```lua
+local ok, why = Praxsuite.Bus.Connect(player)
+if not ok then warn(why) end
+
+Praxsuite.Bus.On("office:hq", "move", function(payload, fromUserId)
+    moveAvatar(fromUserId, payload)
+end)
+
+local peers = Praxsuite.Bus.Join("office:hq")
+for _, peer in ipairs(peers or {}) do
+    moveAvatar(peer.userId, peer.payload)   -- everyone already there, so a late join sees the room
+end
+
+Praxsuite.Bus.Publish("office:hq", "move", { x = x, y = y })
+```
+
+**To push to connected clients from the server with no player involved, you do not need this
+module.** Call an endpoint whose automation carries a PublishRealtimeEvent node:
+
+```lua
+Praxsuite.Endpoints.Call(endpointId, { bus = "office:hq", event = "tick", payload = { ... } })
+```
+
+That path uses the server key directly.
+**A topic must exist before anyone can join it.** Declare it once in the portal under
+API Gateway / Event Bus and pick its access rule. An undeclared topic is refused - which is what
+stops another game's client squatting in your namespace.
+
+Three things about it are not obvious and will bite:
+
+- **Nothing is persisted.** No history, no retry, no delivery to anyone who was not connected.
+  The test is one question: *if this is lost, does it matter?* Yes - a purchase, a level, an
+  inventory grant - means a table via `Praxsuite.Data`, and a server-authoritative write at
+  that. No, because a newer one is coming, means the bus.
+- **Payloads are hostile.** The bus relays opaque JSON between *users* and parses none of it, so
+  every server-side check is bypassed. A position is a hint, never an authority.
+- **You never receive your own event.** Apply your own change locally.
+
+`Publish` does not treat a refusal as an error - dropping an ephemeral frame is ordinary
+operation. `result.recipients == 0` means it went out and nobody was joined, which is success.
+`Join` is the opposite and returns an error worth checking: a join that does not land leaves
+this client silently absent for the whole session.
+
+**Transport.** SignalR's long-polling transport. Roblox's `HttpService` cannot open a WebSocket
+at all, so this is not a preference - it is the only transport available here. Long polling is
+not slow polling: the GET is held open by the server and returns the moment a message is ready.
+The whole cycle was measured working against the live hub before this was written.
+
+---
+
 ## API Reference
 
 ### `Praxsuite.Init(options)`
