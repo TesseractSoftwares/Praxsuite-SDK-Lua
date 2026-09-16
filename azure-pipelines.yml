@@ -32,8 +32,18 @@ pool:
   name: tesseract-buildpool
 
 variables:
-  isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
-  githubRepo: 'TesseractSoftwares/Praxsuite-SDK-Lua'
+  # Los secretos de publicacion salian de prax-cicd-kv, que vive en la
+  # suscripcion de Azure bloqueada el 2026-09-15. Ahora vienen de Secret
+  # Manager de GCP, donde los 46 secretos de ese vault ya estaban replicados
+  # desde el 2026-09-09: una sola fuente de verdad, no dos copias que se
+  # desincronizan. El grupo gcp-migration aporta GCP_SA_KEY_B64.
+  - group: gcp-migration
+  - name: gcpProject
+    value: 'praxsuite-prod'
+  - name: isMaster
+    value: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+  - name: githubRepo
+    value: 'TesseractSoftwares/Praxsuite-SDK-Lua'
 
 stages:
 
@@ -152,14 +162,6 @@ stages:
           fetchDepth: 0
           persistCredentials: true
 
-        - task: AzureKeyVault@2
-          displayName: 'Read GitHub token'
-          inputs:
-            azureSubscription: 'sc-acr-push-core-prod'
-            KeyVaultName: 'prax-cicd-kv'
-            SecretsFilter: 'GITHUB-SDK-MIRROR-TOKEN,PRAXSPACE-INGEST-URL'
-            RunAsPreJob: false
-
         - download: current
           artifact: rbxm
 
@@ -175,6 +177,12 @@ stages:
             echo "Package version: $VERSION"
             echo "##vso[task.setvariable variable=pkgVersion]$VERSION"
           displayName: 'Read package version'
+
+        - template: .azure/templates/gcp-secrets.yml
+          parameters:
+            secretos:
+              GITHUB-SDK-MIRROR-TOKEN: cicd-github-sdk-mirror-token
+              PRAXSPACE-INGEST-URL: cicd-praxspace-ingest-url
 
         # --force-with-lease, not --force: if someone pushed to GitHub directly, fail loudly
         # rather than destroy their commit. This repo had GitHub as its origin for months, so
