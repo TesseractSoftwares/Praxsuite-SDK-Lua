@@ -33,12 +33,13 @@ pool:
 
 variables:
   # Los secretos de publicacion salian de prax-cicd-kv, que vive en la
-  # suscripcion de Azure bloqueada el 2026-09-15. Las lecturas todavia
-  # funcionan, pero si esa suscripcion llega a eliminarse el pipeline se cae.
-  # Este grupo es NATIVO de ADO: no se le agrega gcloud a un pipeline que no lo
-  # necesita para nada mas. Los nombres de variable son identicos a los del
-  # vault, asi que las referencias $(...) de mas abajo no cambian.
-  - group: sdk-publish
+  # suscripcion de Azure bloqueada el 2026-09-15. Ahora vienen de Secret
+  # Manager de GCP, donde los 46 secretos de ese vault ya estaban replicados
+  # desde el 2026-09-09: una sola fuente de verdad, no dos copias que se
+  # desincronizan. El grupo gcp-migration aporta GCP_SA_KEY_B64.
+  - group: gcp-migration
+  - name: gcpProject
+    value: 'praxsuite-prod'
   - name: isMaster
     value: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
   - name: githubRepo
@@ -176,6 +177,12 @@ stages:
             echo "Package version: $VERSION"
             echo "##vso[task.setvariable variable=pkgVersion]$VERSION"
           displayName: 'Read package version'
+
+        - template: .azure/templates/gcp-secrets.yml
+          parameters:
+            secretos:
+              GITHUB-SDK-MIRROR-TOKEN: cicd-github-sdk-mirror-token
+              PRAXSPACE-INGEST-URL: cicd-praxspace-ingest-url
 
         # --force-with-lease, not --force: if someone pushed to GitHub directly, fail loudly
         # rather than destroy their commit. This repo had GitHub as its origin for months, so
