@@ -24,6 +24,11 @@ Query databases, trigger automations, track players — all through a single SDK
 
 ---
 
+## Guides
+
+- [Use Case](https://learn.praxsuite.com/examples/lua/lua-sdk-use-case/)
+- [Implementation](https://learn.praxsuite.com/examples/lua/lua-sdk-implementation/)
+
 ## Why Praxsuite SDK?
 
 | Feature | Description |
